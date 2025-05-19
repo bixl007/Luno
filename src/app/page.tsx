@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 
 export default function Home() {
   return (
-    <div>
-        Hello
+    <div className="flex flex-col items-center">
+      <Landing />
+
     </div>
   );
 }
