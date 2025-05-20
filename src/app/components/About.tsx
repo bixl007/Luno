@@ -1,6 +1,13 @@
+"use client"
+import { useRouter } from "next/navigation";
+
 export function About() {
+  const router = useRouter();
   return (
-    <section className=" text-white py-2 px-4 font-sans">
+    <section
+      id="about"
+      className=" text-white py-2 px-4 font-sans"
+    >
       <div className="max-w-5xl mx-auto">
         <h2
           className="
@@ -98,7 +105,7 @@ export function About() {
         </div>
 
         <div className="text-center">
-          <button className="px-10 py-4 text-2xl font-light bg-gradient-to-r from-purple-500 to-purple-700 rounded-full text-white shadow-lg hover:scale-105 transition-transform">
+          <button className="px-10 py-4 text-2xl font-light bg-gradient-to-r from-purple-500 to-purple-700 rounded-full text-white shadow-lg hover:scale-105 transition-transform" onClick={() => router.push("/signup")}>
             Try Luno Today
           </button>
         </div>

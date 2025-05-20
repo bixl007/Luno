@@ -1,6 +1,6 @@
 export function Feats() {
   return (
-    <section className=" text-white py-4 px-6 font-sans">
+    <section id="features" className=" text-white py-4 px-6 font-sans">
       <div className="max-w-5xl mx-auto">
         <h2
           className="

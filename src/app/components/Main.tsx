@@ -1,4 +1,8 @@
+"use client"
+import { useRouter } from "next/navigation"
+
 export function Main() {
+  const router = useRouter();
   return (
     <div className="lg:grid lg:grid-cols-2 items-center font-sans my-4">
       <div className="flex flex-col gap-5 p-3">
@@ -15,7 +19,7 @@ export function Main() {
           tech under the hood, Luno helps users connect, learn, and get things
           done—effortlessly.
         </div>
-        <button className="mt-2 px-6 text-lg bg-gradient-to-r from-purple-600 to-purple-950 rounded-2xl py-2 w-50 hover:from-purple-700 hover:to-purple-900 transition-colors hover:scale-105 transition-transform">
+        <button className="mt-2 px-6 text-lg bg-gradient-to-r from-purple-600 to-purple-950 rounded-2xl py-2 w-50 hover:from-purple-700 hover:to-purple-900 transition-colors hover:scale-105 transition-transform" onClick={() => router.push("/signup")}>
           Get Started
         </button>
       </div>
