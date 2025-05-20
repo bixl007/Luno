@@ -5,191 +5,69 @@ import { useState } from "react";
 export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   return (
-    <div>
-      <div className="min-h-screen w-full flex items-center justify-center">
-        <div className="flex items-center justify-center w-full min-h-screen">
-          <div className="grid md:grid-cols-2 items-center gap-6 max-w-6xl w-full">
-            <div className="border border-slate-300 rounded-lg p-6 max-w-md w-full shadow-[0_2px_22px_-4px_rgba(93,96,127,0.2)] mx-auto">
-              <form className="space-y-6">
-                <div className="mb-12">
-                  <h3 className="text-slate-900 text-3xl font-semibold">
-                    Sign Up
-                  </h3>
-                  <p className="text-slate-500 text-sm mt-6 leading-relaxed">
-                    Create your account and explore a world of possibilities.
-                    Your journey begins here.
-                  </p>
-                </div>
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden" style={{ background: "#15042F" }}>
+      <div className="absolute inset-0 z-0">
+        <img
+          src="https://res.cloudinary.com/dqlku2tfk/image/upload/v1747732241/Background_muyxpf.png"
+          alt="bg"
+          className="w-full h-full object-cover shadow-2xl shadow-indigo-950"
+        />
+      </div>
 
-                <div>
-                  <label className="text-slate-800 text-sm font-medium mb-2 block">
-                    Name
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      name="username"
-                      type="text"
-                      required
-                      className="w-full text-sm text-slate-800 border border-slate-300 pl-4 pr-10 py-3 rounded-lg outline-blue-600"
-                      placeholder="Enter your email"
-                    />
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="#bbb"
-                      stroke="#bbb"
-                      className="w-[18px] h-[18px] absolute right-4"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        cx="10"
-                        cy="7"
-                        r="6"
-                        data-original="#000000"
-                      ></circle>
-                      <path
-                        d="M14 15H6a5 5 0 0 0-5 5 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 5 5 0 0 0-5-5zm8-4h-2.59l.3-.29a1 1 0 0 0-1.42-1.42l-2 2a1 1 0 0 0 0 1.42l2 2a1 1 0 0 0 1.42 0 1 1 0 0 0 0-1.42l-.3-.29H22a1 1 0 0 0 0-2z"
-                        data-original="#000000"
-                      ></path>
-                    </svg>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-slate-800 text-sm font-medium mb-2 block">
-                    email
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      name="username"
-                      type="email"
-                      required
-                      className="w-full text-sm text-slate-800 border border-slate-300 pl-4 pr-10 py-3 rounded-lg outline-blue-600"
-                      placeholder="Enter user name"
-                    />
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="#bbb"
-                      stroke="#bbb"
-                      className="w-[18px] h-[18px] absolute right-4"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        cx="10"
-                        cy="7"
-                        r="6"
-                        data-original="#000000"
-                      ></circle>
-                      <path
-                        d="M14 15H6a5 5 0 0 0-5 5 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 5 5 0 0 0-5-5zm8-4h-2.59l.3-.29a1 1 0 0 0-1.42-1.42l-2 2a1 1 0 0 0 0 1.42l2 2a1 1 0 0 0 1.42 0 1 1 0 0 0 0-1.42l-.3-.29H22a1 1 0 0 0 0-2z"
-                        data-original="#000000"
-                      ></path>
-                    </svg>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-slate-800 text-sm font-medium mb-2 block">
-                    Password
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      required
-                      className="w-full text-sm text-slate-800 border border-slate-300 pl-4 pr-10 py-3 rounded-lg outline-blue-600"
-                      placeholder="Enter password"
-                    />
-                    {showPassword ? (
-                      // Eye closed SVG
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="#bbb"
-                        stroke="#bbb"
-                        className="w-[18px] h-[18px] absolute right-4 cursor-pointer"
-                        viewBox="0 0 24 24"
-                        onClick={() => setShowPassword(false)}
-                      >
-                        <path
-                          d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-5.05 0-9.29-3.14-11-7 1.21-2.61 3.36-4.77 6-6.11M1 1l22 22"
-                          stroke="#bbb"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          fill="none"
-                        />
-                        <path
-                          d="M9.53 9.53A3.5 3.5 0 0 0 12 15.5c.96 0 1.84-.38 2.47-1"
-                          stroke="#bbb"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          fill="none"
-                        />
-                      </svg>
-                    ) : (
-                      // Eye open SVG
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="#bbb"
-                        stroke="#bbb"
-                        className="w-[18px] h-[18px] absolute right-4 cursor-pointer"
-                        viewBox="0 0 24 24"
-                        onClick={() => setShowPassword(true)}
-                      >
-                        <circle cx="12" cy="12" r="3" />
-                        <path d="M2 12C3.73 7.61 7.61 4 12 4s8.27 3.61 10 8c-1.73 4.39-5.61 8-10 8S3.73 16.39 2 12z" />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-center">
-                    <input
-                      id="remember-me"
-                      name="remember-me"
-                      type="checkbox"
-                      required
-                      className="h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
-                    />
-                    <label
-                      // for="remember-me"
-                      className="ml-3 block text-sm text-slate-500"
-                    >
-                      Accept Terms & Condition*
-                    </label>
-                  </div>
-
-                 
-                </div>
-
-                <div className="!mt-12">
-                  <button
-                    type="submit"
-                    className="w-full shadow-xl py-2.5 px-4 text-[15px] font-medium tracking-wide rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none cursor-pointer"
-                  >
-                    Sign in
-                  </button>
-                  <p className="text-sm !mt-6 text-center text-slate-500">
-                    Already have an account{" "}
-                    <a
-                      href="/signin"
-                      className="text-blue-600 font-medium hover:underline ml-1 whitespace-nowrap"
-                    >
-                      Login
-                    </a>
-                  </p>
-                </div>
-              </form>
+      <div className="relative z-10 min-h-screen w-full lg:w-5/12 lg:absolute lg:right-0 flex flex-col justify-center px-4 sm:px-6 lg:px-8">
+        <div className="text-4xl sm:text-6xl lg:text-8xl font-sans font-bold mb-4">Sign Up</div>
+        <form className="w-full max-w-lg mx-auto lg:mx-0 space-y-4 text-base sm:text-lg lg:text-xl">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff">
+                <circle cx="12" cy="6" r="4" stroke="#ffffff" strokeWidth="1.5"></circle>
+                <path d="M20 17.5C20 19.9853 20 22 12 22C4 22 4 19.9853 4 17.5C4 15.0147 7.58172 13 12 13C16.4183 13 20 15.0147 20 17.5Z" stroke="#ffffff" strokeWidth="1.5"></path>
+              </svg>
+              <span>Username:</span>
             </div>
-
-            <div className="max-md:mt-8 invisible md:visible">
-              <img
-                src="https://res.cloudinary.com/dqlku2tfk/image/upload/v1747322286/simplicity-gestalt-principle-example_ed24mn.png"
-                className="w-full aspect-[71/50] max-md:w-4/5 mx-auto block object-cover"
-                alt="login img"
-              />
-            </div>
+            <input
+              type="text"
+              placeholder="Your Name"
+              className="w-full p-3 sm:p-4 rounded-xl bg-[#280A51]"
+            />
           </div>
-        </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <svg width="24" height="24" viewBox="0 0 26 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4.51943 0.038147H21.6713C22.7211 0.038147 23.7278 0.434312 24.4701 1.13949C25.2124 1.84467 25.6294 2.80109 25.6294 3.79837V15.079C25.6294 16.0763 25.2124 17.0327 24.4701 17.7379C23.7278 18.4431 22.7211 18.8392 21.6713 18.8392H4.51943C3.46967 18.8392 2.46291 18.4431 1.72062 17.7379C0.978323 17.0327 0.561308 16.0763 0.561308 15.079V3.79837C0.561308 2.80109 0.978323 1.84467 1.72062 1.13949C2.46291 0.434312 3.46967 0.038147 4.51943 0.038147ZM4.51943 1.29155C3.85974 1.29155 3.27922 1.50463 2.83063 1.88065L13.0954 8.18529L23.3601 1.88065C22.9115 1.50463 22.331 1.29155 21.6713 1.29155H4.51943ZM13.0954 9.70191L2.0522 2.89591C1.94665 3.17166 1.88068 3.48501 1.88068 3.79837V15.079C1.88068 15.7439 2.15869 16.3815 2.65355 16.8516C3.14842 17.3217 3.81959 17.5858 4.51943 17.5858H21.6713C22.3711 17.5858 23.0423 17.3217 23.5372 16.8516C24.032 16.3815 24.3101 15.7439 24.3101 15.079V3.79837C24.3101 3.48501 24.2441 3.17166 24.1385 2.89591L13.0954 9.70191Z" fill="#A4A4A4"/>
+              </svg>
+              <span>Email:</span>
+            </div>
+            <input
+              type="email"
+              placeholder="youremail@email.com"
+              className="w-full p-3 sm:p-4 rounded-xl bg-[#280A51]"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <svg width="24" height="24" viewBox="0 0 26 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20.5 7.5H19V5.5C19 3.01472 16.9853 1 14.5 1H13.5C11.0147 1 9 3.01472 9 5.5V7.5H7.5C6.67157 7.5 6 8.17157 6 9V17C6 17.8284 6.67157 18.5 7.5 18.5H20.5C21.3284 18.5 22 17.8284 22 17V9C22 8.17157 21.3284 7.5 20.5 7.5Z" fill="#A4A4A4"/>
+              </svg>
+              <span>Password:</span>
+            </div>
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Your Password"
+              className="w-full p-3 sm:p-4 rounded-xl bg-[#280A51]"
+            />
+          </div>
+
+          <button className="w-full p-3 sm:p-4 mt-6 text-xl sm:text-2xl font-light bg-gradient-to-r from-purple-500 to-purple-700 rounded-full text-white shadow-lg hover:scale-105 transition-transform">
+            Sign Up
+          </button>
+
+          <div className="text-center sm:text-left mt-4">
+            Already have an account? <a href="/signin" className="text-blue-400 hover:text-blue-300 transition-colors">Login</a>
+          </div>
+        </form>
       </div>
     </div>
   );
