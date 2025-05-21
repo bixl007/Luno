@@ -15,7 +15,7 @@ export default function Signin() {
       </div>
 
       <div className="relative z-10 min-h-screen w-full lg:w-5/12 lg:absolute lg:right-0 flex flex-col justify-center px-4 sm:px-6 lg:px-8">
-        <div className="text-4xl sm:text-6xl lg:text-8xl font-sans font-bold mb-4">Sign Ip</div>
+        <div className="text-4xl sm:text-6xl lg:text-8xl font-sans font-bold mb-4">Sign In</div>
         <form className="w-full max-w-lg mx-auto lg:mx-0 space-y-4 text-base sm:text-lg lg:text-xl">
           
 

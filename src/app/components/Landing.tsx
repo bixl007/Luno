@@ -13,3 +13,7 @@ export function Landing() {
     </div>
   );
 }
+
+<nav className="w-full max-w-screen-2xl mx-auto flex justify-between items-center px-4">
+  {/* ...existing nav content... */}
+</nav>
