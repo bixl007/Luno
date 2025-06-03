@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { Landing } from "./components/Landing";
 
 export default function Home() {
-  // Remove loader/video logic, just animate content in
   const [contentVisible, setContentVisible] = useState(false);
 
   useEffect(() => {

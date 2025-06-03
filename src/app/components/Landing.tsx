@@ -1,19 +1,23 @@
 import { About } from "./About";
 import { Feats } from "./Feats";
 import { Main } from "./Main";
-import { Navbar } from "./Navbar";
+import { Nav } from "./Nav";
+import { cn } from "@/lib/utils";
+import { twMerge } from "tailwind-merge";
+import { TracingBeam } from "../../components/ui/tracing-beam";
+import { Parall } from "./Parall";
 
 export function Landing() {
   return (
+    
     <div className="w-full sm:w-11/12 md:w-10/12 lg:w-9/12 mx-auto px-3 my-3 sm:px-0 lg:my-6">
-      <Navbar />
+      <Nav />
       <Main />
-      <Feats />
-      <About />
+      <TracingBeam>
+      <Parall />
+        <Feats />
+        <About />
+      </TracingBeam>
     </div>
   );
 }
-
-<nav className="w-full max-w-screen-2xl mx-auto flex justify-between items-center px-4">
-  {/* ...existing nav content... */}
-</nav>
