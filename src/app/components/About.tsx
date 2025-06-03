@@ -81,9 +81,9 @@ export function About() {
 
             <p className="text-base lg:text-lg font-light text-gray-300 leading-relaxed">
               Meet Luno, the minimalist chatbot built to simplify your digital
-              life. Whether you're looking for quick answers, real-time support,
+              life. Whether you&apos;re looking for quick answers, real-time support,
               or just a chill conversation, Luno is always on, always sharp.
-              With a clean interface and smart responses, it's like having the
+              With a clean interface and smart responses, it&apos;s like having the
               moonlight version of AI in your pocket—calm, smart, and just a
               little bit cosmic.
             </p>
@@ -97,7 +97,7 @@ export function About() {
             <p className="text-base lg:text-lg font-light text-gray-300 leading-relaxed">
               Available day or night, Luno illuminates your digital journey with
               just the right amount of brightness. We believe technology should
-              adapt to your life, not the other way around. That's why Luno is
+              adapt to your life, not the other way around. That&apos;s why Luno is
               designed to be there exactly when you need it, providing clarity
               without overwhelming you. Keep it simple. Keep it Luno.
             </p>

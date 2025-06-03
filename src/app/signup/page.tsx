@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 export default function Signup() {
-  const [showPassword, setShowPassword] = useState(false);
   return (
     <div className="fixed inset-0 w-screen h-screen overflow-hidden" style={{ background: "#15042F" }}>
       <div className="absolute inset-0 z-0">
@@ -54,7 +53,7 @@ export default function Signup() {
               <span>Password:</span>
             </div>
             <input
-              type={showPassword ? "text" : "password"}
+              type="password"
               placeholder="Your Password"
               className="w-full p-3 sm:p-4 rounded-xl bg-[#280A51]"
             />

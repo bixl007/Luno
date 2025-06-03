@@ -2,8 +2,6 @@ import { About } from "./About";
 import { Feats } from "./Feats";
 import { Main } from "./Main";
 import { Nav } from "./Nav";
-import { cn } from "@/lib/utils";
-import { twMerge } from "tailwind-merge";
 import { TracingBeam } from "../../components/ui/tracing-beam";
 import { Parall } from "./Parall";
 

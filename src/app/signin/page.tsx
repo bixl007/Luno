@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 export default function Signin() {
-    const [showPassword, setShowPassword] = useState(false);
   return (
     <div className="fixed inset-0 w-screen h-screen overflow-hidden" style={{ background: "#15042F" }}>
       <div className="absolute inset-0 z-0">
@@ -17,8 +16,6 @@ export default function Signin() {
       <div className="relative z-10 min-h-screen w-full lg:w-5/12 lg:absolute lg:right-0 flex flex-col justify-center px-4 sm:px-6 lg:px-8">
         <div className="text-4xl sm:text-6xl lg:text-8xl font-sans font-bold mb-4">Sign In</div>
         <form className="w-full max-w-lg mx-auto lg:mx-0 space-y-4 text-base sm:text-lg lg:text-xl">
-          
-
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <svg width="24" height="24" viewBox="0 0 26 19" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -41,7 +38,7 @@ export default function Signin() {
               <span>Password:</span>
             </div>
             <input
-              type={showPassword ? "text" : "password"}
+              type="password"
               placeholder="Your Password"
               className="w-full p-3 sm:p-4 rounded-xl bg-[#280A51]"
             />
