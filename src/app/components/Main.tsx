@@ -1,6 +1,7 @@
 "use client"
 import { useRouter } from "next/navigation"
 import { Cover } from "@/components/ui/cover";
+import Image from "next/image";
 
 export function Main() {
   const router = useRouter();
@@ -20,16 +21,20 @@ export function Main() {
           Get Started
         </button>
       </div>
-      <div className="relative lg:flex hidden lg:block">
-        <img
+      <div className="relative lg:flex hidden">
+        <Image
           src="https://res.cloudinary.com/dqlku2tfk/image/upload/v1747667100/bot_o4epk9.png"
           alt="robo"
           className="w-95 md:w-120 lg:w-150"
+          width={600}
+          height={600}
         />
-        <img
+        <Image
           src="https://res.cloudinary.com/dqlku2tfk/image/upload/v1747667100/Ellipse_1249_kq8bej.png"
           alt="shadow"
           className="absolute bottom-0"
+          width={600}
+          height={100}
         />
       </div>
     </div>

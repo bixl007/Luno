@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
 
 export default function Signin() {
   return (
     <div className="fixed inset-0 w-screen h-screen overflow-hidden" style={{ background: "#15042F" }}>
       <div className="absolute inset-0 z-0">
-        <img
+        <Image
           src="https://res.cloudinary.com/dqlku2tfk/image/upload/v1747732241/Background_muyxpf.png"
           alt="bg"
           className="w-full h-full object-cover shadow-2xl shadow-indigo-950"
+          fill
+          priority
         />
       </div>
 

@@ -7,8 +7,7 @@ import {
   useSpring,
   MotionValue,
 } from "motion/react";
-
-
+import Image from "next/image";
 
 export const HeroParallax = ({
   products,
@@ -131,12 +130,12 @@ export const ProductCard = ({
       }}
       className="group/product h-96 w-[30rem] relative shrink-0"
     >
-      <img
+      <Image
         src={product.thumbnail}
-        height="600"
-        width="600"
-        className="object-contain object-left-top absolute h-full w-full inset-0" // Changed from object-cover to object-contain
-        alt="" // Alt text can be empty or a generic description if title is not available
+        height={600}
+        width={600}
+        className="object-contain object-left-top absolute h-full w-full inset-0"
+        alt="Product image"
       />
       <div className="absolute inset-0 h-full w-full opacity-0 group-hover/product:opacity-80 bg-black pointer-events-none"></div>
     </motion.div>

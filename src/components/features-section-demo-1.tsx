@@ -71,10 +71,10 @@ export const Grid = ({
   pattern,
   size,
 }: {
-  pattern?: number[][];
+  pattern?: [number, number][];
   size?: number;
 }) => {
-  const p = pattern ?? [
+  const p: [number, number][] = pattern ?? [
     [Math.floor(Math.random() * 4) + 7, Math.floor(Math.random() * 6) + 1],
     [Math.floor(Math.random() * 4) + 7, Math.floor(Math.random() * 6) + 1],
     [Math.floor(Math.random() * 4) + 7, Math.floor(Math.random() * 6) + 1],
@@ -97,11 +97,26 @@ export const Grid = ({
   );
 };
 
-export function GridPattern({ width, height, x, y, squares, ...props }: any) {
+export function GridPattern({
+  width,
+  height,
+  x,
+  y,
+  squares,
+  ...props
+}: {
+  width: number;
+  height: number;
+  x: string | number;
+  y: string | number;
+  squares?: [number, number][];
+  // Use a safer index signature for props
+  [key: string]: unknown;
+}) {
   const patternId = useId();
 
   return (
-    <svg aria-hidden="true" {...props}>
+    <svg aria-hidden="true" {...(props as React.SVGProps<SVGSVGElement>)} >
       <defs>
         <pattern
           id={patternId}
@@ -122,7 +137,7 @@ export function GridPattern({ width, height, x, y, squares, ...props }: any) {
       />
       {squares && (
         <svg x={x} y={y} className="overflow-visible">
-          {squares.map(([x, y]: any) => (
+          {squares.map(([x, y]: [number, number]) => (
             <rect
               strokeWidth="0"
               key={`${x}-${y}`}
