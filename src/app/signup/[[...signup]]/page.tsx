@@ -1,7 +1,6 @@
 "use client";
 
 import { SignUp, useAuth } from "@clerk/nextjs";
-import Image from "next/image";
 import { shadesOfPurple } from "@clerk/themes";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
