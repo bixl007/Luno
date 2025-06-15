@@ -10,7 +10,11 @@ export default function Signup() {
   const router = useRouter();
 
   useEffect(() => {
+    async function createUser() {
+      await fetch("/api/user", { method: "POST" });
+    }
     if (isSignedIn) {
+      createUser();
       router.replace("/dashboard");
     }
   }, [isSignedIn, router]);
