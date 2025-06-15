@@ -9,7 +9,7 @@ export function Main() {
     <div className="lg:grid lg:grid-cols-2 items-center font-sans my-4">
       <div className="flex flex-col gap-5 p-3">
         <h1 className="text-4xl md:text-4xl lg:text-6xl font-semibold max-w-7xl mx-auto text-center mt-6 relative z-20 py-6 bg-clip-text text-transparent bg-gradient-to-b from-purple-800 via-purple-600 to-purple-400">
-        Get ready for the new era of AI  <br /> at <Cover>of AI</Cover>
+        Get ready for the new era <Cover>of AI</Cover>
       </h1>
         <div className="text-xl font-light">
           Luno is a modern, AI-powered chatbot designed for clean, intelligent,
