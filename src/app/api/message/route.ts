@@ -19,15 +19,19 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { userId } = getAuth(req);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { chatId, content } = await req.json();
+  const { chatId, content, isScrapingEnabled } = await req.json();
   if (!chatId || !content) return NextResponse.json({ error: 'Missing data' }, { status: 400 });
+
+  const chat = await prisma.chat.findUnique({ where: { id: Number(chatId) } });
+  if (!chat) return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+
   const message = await prisma.message.create({
     data: { chatId: Number(chatId), userId, content, role: 'user' }
   });
   await prisma.chat.update({ where: { id: Number(chatId) }, data: { updatedAt: new Date() } });
 
   // Generate Gemini response and save as assistant message
-  const aiContent = await generateGeminiResponse(content);
+  const aiContent = await generateGeminiResponse(content, chat.context, isScrapingEnabled);
   let aiMessage = null;
   if (aiContent) {
     // Ensure the assistant user exists before creating the assistant message
@@ -42,6 +46,13 @@ export async function POST(req: NextRequest) {
     });
     aiMessage = await prisma.message.create({
       data: { chatId: Number(chatId), userId: 'luno-ai', content: aiContent, role: 'assistant' }
+    });
+
+    // Update chat context
+    const newContext = `${chat.context || ''}\nUser: ${content}\nAI: ${aiContent}`;
+    await prisma.chat.update({
+      where: { id: Number(chatId) },
+      data: { context: newContext }
     });
   }
 

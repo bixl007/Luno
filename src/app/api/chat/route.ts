@@ -17,12 +17,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { userId } = getAuth(req);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { title, firstMessage } = await req.json();
+  const { title, firstMessage, isScrapingEnabled } = await req.json();
 
-  // Ensure user exists in DB (fixes P2003 error)
   let dbUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!dbUser) {
-    // Fallback: create user with minimal info if missing
     dbUser = await prisma.user.create({
       data: { id: userId, email: `${userId}@noemail.local` },
     });
@@ -30,7 +28,6 @@ export async function POST(req: NextRequest) {
 
   let chat;
   if (firstMessage) {
-    // Create chat and first user message
     chat = await prisma.chat.create({
       data: {
         userId,
@@ -39,10 +36,8 @@ export async function POST(req: NextRequest) {
       },
       include: { messages: true }
     });
-    // Generate Gemini response
-    const aiContent = await generateGeminiResponse(firstMessage);
+    const aiContent = await generateGeminiResponse(firstMessage, null, isScrapingEnabled);
     if (aiContent) {
-      // Ensure the assistant user exists before creating the assistant message
       await prisma.user.upsert({
         where: { id: 'luno-ai' },
         update: {},
@@ -55,6 +50,11 @@ export async function POST(req: NextRequest) {
       await prisma.message.create({
         data: { chatId: chat.id, userId: 'luno-ai', content: aiContent, role: 'assistant' }
       });
+      const newContext = `User: ${firstMessage}\nAI: ${aiContent}`;
+      await prisma.chat.update({
+        where: { id: chat.id },
+        data: { context: newContext }
+      });
     }
   } else {
     chat = await prisma.chat.create({
@@ -62,14 +62,17 @@ export async function POST(req: NextRequest) {
       include: { messages: true }
     });
   }
-  return NextResponse.json(chat);
+  const fullChat = await prisma.chat.findUnique({
+    where: { id: chat.id },
+    include: { messages: true }
+  });
+  return NextResponse.json(fullChat);
 }
 
 export async function DELETE(req: NextRequest) {
   const { userId } = getAuth(req);
   const chatId = req.nextUrl.searchParams.get('chatId');
   if (!userId || !chatId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  // Only allow deleting user's own chats
   const chat = await prisma.chat.findUnique({ where: { id: Number(chatId) } });
   if (!chat || chat.userId !== userId) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   await prisma.message.deleteMany({ where: { chatId: Number(chatId) } });
