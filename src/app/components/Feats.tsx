@@ -60,10 +60,15 @@ export function Feats() {
   ];
   const totalFeatures = features.length;
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4  relative z-10 py-10 max-w-7xl mx-auto" id="features">
-      {features.map((feature, index) => (
-        <Feature key={feature.title} {...feature} index={index} totalFeatures={totalFeatures} />
-      ))}
+    <div className="py-10 max-w-7xl mx-auto" id="features">
+      <h2 className="text-5xl md:text-6xl font-bold text-center mb-16 bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 bg-clip-text text-transparent">
+        Features
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 relative z-10">
+        {features.map((feature, index) => (
+          <Feature key={feature.title} {...feature} index={index} totalFeatures={totalFeatures} />
+        ))}
+      </div>
     </div>
   );
 }

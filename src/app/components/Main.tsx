@@ -11,13 +11,13 @@ export function Main() {
         <h1 className="text-4xl md:text-4xl lg:text-6xl font-semibold max-w-7xl mx-auto text-center mt-6 relative z-20 py-6 bg-clip-text text-transparent bg-gradient-to-b from-purple-800 via-purple-600 to-purple-400">
         Get ready for the new era <Cover>of AI</Cover>
       </h1>
-        <div className="text-xl font-light">
+        <div className="text-xl font-light text-gray-300">
           Luno is a modern, AI-powered chatbot designed for clean, intelligent,
           and human-like conversations. With a minimalist aesthetic and smart
           tech under the hood, Luno helps users connect, learn, and get things
           done—effortlessly.
         </div>
-        <button className="mt-2 px-6 text-lg bg-gradient-to-r from-purple-600 to-purple-950 rounded-2xl py-2 w-50 hover:from-purple-700 hover:to-purple-900 transition-colors hover:scale-105 transition-transform" onClick={() => router.push("/signup")}>
+        <button className="mt-2 px-6 text-lg text-white bg-gradient-to-r from-purple-600 to-purple-950 rounded-2xl py-2 w-50 hover:from-purple-700 hover:to-purple-900 transition-all hover:scale-105" onClick={() => router.push("/signup")}>
           Get Started
         </button>
       </div>

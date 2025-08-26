@@ -19,14 +19,14 @@ export default function Home() {
   }, [isLoaded, isSignedIn, router]);
 
   return (
-    <div className="flex flex-col items-center w-full">
+    <div className="flex flex-col items-center w-full min-h-screen bg-black">
       {!isLoaded ? (
-        <div className="w-full h-screen flex items-center justify-center">
+        <div className="w-full h-screen flex items-center justify-center bg-black">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
         </div>
       ) : !isSignedIn ? (
         <div
-          className={`w-full opacity-0 ${
+          className={`w-full opacity-0 bg-black ${
             contentVisible ? "animate-fade-in-content" : ""
           }`}
         >

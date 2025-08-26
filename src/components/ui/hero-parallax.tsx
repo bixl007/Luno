@@ -101,10 +101,10 @@ export const HeroParallax = ({
 export const Header = () => {
   return (
     <div className="max-w-7xl relative mx-auto py-20 md:py-40 px-4 w-full  left-0 top-0">
-      <h1 className="text-2xl md:text-7xl font-bold dark:text-white">
+      <h1 className="text-2xl md:text-7xl font-bold text-white">
         Built for the Future <br /> of Conversations
       </h1>
-      <p className="max-w-2xl text-base md:text-xl mt-8 dark:text-neutral-200">
+      <p className="max-w-2xl text-base md:text-xl mt-8 text-neutral-200">
         Luno isn’t just another chatbot—it’s a leap forward in how we interact with technology. Designed with a deep understanding of human language and behavior, Luno brings clarity, context, and intelligence to every interaction. Whether you&apos;re asking questions, solving problems, or just exploring ideas, Luno delivers responses that feel natural, insightful, and human.
       </p>
     </div>
