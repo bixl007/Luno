@@ -1,7 +1,7 @@
 import { getAuth } from '@clerk/nextjs/server';
 import prisma from '@/utils/prisma';
 import { NextResponse, NextRequest } from 'next/server';
-import { generateGroqResponse } from '@/utils/modelSelector';
+import { generateGeminiResponse } from '@/utils/modelSelector';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   });
   await prisma.chat.update({ where: { id: Number(chatId) }, data: { updatedAt: new Date() } });
 
-  const aiContent = await generateGroqResponse(content, chat.context, isScrapingEnabled);
+  const aiContent = await generateGeminiResponse(content, chat.context, isScrapingEnabled);
   let aiMessage = null;
   if (aiContent) {
     await prisma.user.upsert({
