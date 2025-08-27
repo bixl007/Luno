@@ -1,14 +1,13 @@
 import { getAuth } from '@clerk/nextjs/server';
 import prisma from '@/utils/prisma';
 import { NextResponse, NextRequest } from 'next/server';
-import { generateGeminiResponse } from '@/utils/gemini';
+import { generateGroqResponse } from '@/utils/modelSelector';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const chatId = searchParams.get('chatId');
   const { userId } = getAuth(req);
   if (!userId || !chatId) return NextResponse.json([], { status: 401 });
-  // Fetch all messages for the chat, not just the current user's
   const messages = await prisma.message.findMany({
     where: { chatId: Number(chatId) },
     orderBy: { createdAt: 'asc' }
@@ -30,11 +29,9 @@ export async function POST(req: NextRequest) {
   });
   await prisma.chat.update({ where: { id: Number(chatId) }, data: { updatedAt: new Date() } });
 
-  // Generate Gemini response and save as assistant message
-  const aiContent = await generateGeminiResponse(content, chat.context, isScrapingEnabled);
+  const aiContent = await generateGroqResponse(content, chat.context, isScrapingEnabled);
   let aiMessage = null;
   if (aiContent) {
-    // Ensure the assistant user exists before creating the assistant message
     await prisma.user.upsert({
       where: { id: 'luno-ai' },
       update: {},
@@ -48,7 +45,6 @@ export async function POST(req: NextRequest) {
       data: { chatId: Number(chatId), userId: 'luno-ai', content: aiContent, role: 'assistant' }
     });
 
-    // Update chat context
     const newContext = `${chat.context || ''}\nUser: ${content}\nAI: ${aiContent}`;
     await prisma.chat.update({
       where: { id: Number(chatId) },

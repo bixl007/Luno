@@ -1,7 +1,7 @@
 import { getAuth } from '@clerk/nextjs/server';
 import prisma from '@/utils/prisma';
 import { NextResponse, NextRequest } from 'next/server';
-import { generateGeminiResponse } from '@/utils/gemini';
+import { generateGroqResponse } from '@/utils/modelSelector';
 
 export async function GET(req: NextRequest) {
   const { userId } = getAuth(req);
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       },
       include: { messages: true }
     });
-    const aiContent = await generateGeminiResponse(firstMessage, null, isScrapingEnabled);
+    const aiContent = await generateGroqResponse(firstMessage, null, isScrapingEnabled);
     if (aiContent) {
       await prisma.user.upsert({
         where: { id: 'luno-ai' },
