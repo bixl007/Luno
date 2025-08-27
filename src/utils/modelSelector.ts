@@ -2,7 +2,7 @@ import axios from "axios";
 import { searchAndScrape } from "./search-improved";
 import { scrapeUrlContent } from "./scraper";
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 const GEMINI_API_KEY = process.env.BOT_API!;
 
 function needsWebSearch(prompt: string): boolean {
@@ -219,6 +219,27 @@ ${prompt.toLowerCase().includes('creator') || prompt.toLowerCase().includes('dev
   For more detailed information about Bishal's projects and experience, please visit his website or try asking again in a few minutes.` :
   'I\'m unable to process your request right now due to high demand. Please try again in a few moments, and I\'ll be happy to help you with a detailed response.'
 }`;
+    }
+    
+    if (error?.response?.status === 503 || error?.response?.status === 'UNAVAILABLE') {
+      console.log("Model overloaded. Providing fallback response with retry suggestion.");
+      return `I apologize, but the AI model is currently experiencing high demand and is temporarily overloaded. Please try again in a few moments.
+
+${prompt.toLowerCase().includes('creator') || prompt.toLowerCase().includes('developer') ? 
+  `**About Luno's Creator:**
+  
+  Luno was created by **Bishal Baira**, a skilled web developer who specializes in building modern, responsive, and user-friendly web applications.
+  
+  - **Website:** https://xyrix.xyz/
+  - **GitHub:** https://github.com/xyrix
+  - **Philosophy:** Clean code, scalable systems, and seamless UI
+  - **Focus:** Making technology work beautifully
+  
+  For more detailed information about Bishal's projects and experience, please visit his website or try asking again in a few minutes.` :
+  'The AI service is temporarily busy. Please wait a moment and try your question again.'
+}
+
+*Tip: The system should be back to normal shortly. Thank you for your patience!*`;
     }
     
     if (error?.response?.status === 400) {
