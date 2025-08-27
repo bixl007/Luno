@@ -577,7 +577,7 @@ export default function Chat() {
         {showWelcome ? (
           <div className="flex flex-col items-center justify-center h-full w-full text-center px-4">
             <div className="w-20 h-20 mb-8 rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 animate-pulse mx-auto shadow-2xl"></div>
-            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Good evening, {username}</h1>
+            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Nice to see you, {username}</h1>
             <p className="text-xl md:text-2xl text-slate-400 mt-4">Can I help you with anything?</p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12 max-w-4xl w-full">
