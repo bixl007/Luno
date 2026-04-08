@@ -16,8 +16,6 @@ const PRETRAINED_PROMPTS = [
   "Rewrite message for maximum impact",
   "Summarize key points",
 ];
-const DEFAULT_SYSTEM_PROMPT =
-  "You are Luno, a helpful, friendly, and knowledgeable AI assistant. Always introduce yourself as Luno in your first response. Answer clearly and concisely.";
 
 export default function Chat() {
   const { user } = useUser();
@@ -29,7 +27,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isScrapingEnabled, setIsScrapingEnabled] = useState(false); // User can choose to enable
+  const [isContextPanelOpen, setIsContextPanelOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [isListening, setIsListening] = useState<number | null>(null);
   const [speechCancelled, setSpeechCancelled] = useState(false);
@@ -372,11 +370,7 @@ export default function Chat() {
     e.preventDefault();
     if (!input.trim()) return;
 
-    // Only show web search message if web search is actually enabled
-    const willUseWebSearch = isScrapingEnabled;
-    const thinkingMessage = willUseWebSearch 
-      ? "🔍 Searching the web for the latest information... This may take a few seconds." 
-      : "Luno is thinking...";
+    const thinkingMessage = "Luno is thinking...";
 
     if (!selectedChat) {
       setIsThinking(true);
@@ -389,7 +383,7 @@ export default function Chat() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: input.slice(0, 30), firstMessage: input, isScrapingEnabled }),
+        body: JSON.stringify({ title: input.slice(0, 30), firstMessage: input }),
       });
       if (res.ok) {
         const chat = await res.json();
@@ -418,7 +412,7 @@ export default function Chat() {
     const res = await fetch("/api/message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chatId: selectedChat.id, content: input, isScrapingEnabled }),
+      body: JSON.stringify({ chatId: selectedChat.id, content: input }),
     });
     if (res.ok) {
       const { user, assistant } = await res.json(); // 'user' is the user message from backend
@@ -457,7 +451,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="h-screen w-full flex bg-black overflow-hidden min-h-0 text-white">
+    <div className="h-screen w-full flex bg-[#0f141b] overflow-hidden min-h-0 text-slate-100">
       {/* Toast notifications */}
       <Toaster 
         position="top-right"
@@ -491,7 +485,7 @@ export default function Chat() {
       {!isSidebarOpen && (
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className="fixed top-4 left-4 z-50 p-3 rounded-xl bg-slate-800/90 backdrop-blur-lg text-slate-200 hover:bg-slate-700/90 transition-all duration-200 shadow-xl border border-slate-600/30"
+          className="fixed top-4 left-4 z-50 p-3 rounded-2xl bg-[#1a202b]/90 backdrop-blur-xl text-slate-300 hover:text-slate-100 hover:bg-[#222a36]/95 transition-all duration-200 border border-slate-700/40"
           aria-label="Open sidebar"
         >
           <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -502,18 +496,18 @@ export default function Chat() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full w-72 z-40 flex flex-col text-slate-200 transition-transform duration-300 ease-in-out border-r border-slate-700/50 shadow-2xl bg-gradient-to-b from-slate-800 to-slate-900 ${
+        className={`fixed top-0 left-0 h-full w-72 z-40 flex flex-col text-slate-300 transition-transform duration-300 ease-in-out border-r border-slate-800/80 bg-[#121821] ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex flex-col flex-grow min-h-0 p-6">
           <div className="flex items-center justify-between mb-8 mt-2">
-            <span className="text-2xl font-bold tracking-wider bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+            <span className="text-2xl font-semibold tracking-wide text-slate-200">
               Luno Chats
             </span>
             <button
               onClick={() => setIsSidebarOpen(false)}
-              className="p-2 rounded-xl bg-slate-700/80 backdrop-blur-md text-slate-200 hover:bg-slate-600/80 transition-all duration-200 shadow-lg"
+              className="p-2 rounded-xl bg-slate-800/70 text-slate-300 hover:bg-slate-700/80 transition-all duration-200"
               aria-label="Close sidebar"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -523,7 +517,7 @@ export default function Chat() {
           </div>
 
           <button
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600/20 to-cyan-600/20 hover:from-blue-600/30 hover:to-cyan-600/30 mb-6 text-left transition-all duration-200 border border-blue-500/20"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#1b2430] hover:bg-[#222d3a] mb-8 text-left transition-all duration-200 border border-slate-700/60"
             onClick={() => {
               setSelectedChat(null);
               setMessages([]);
@@ -537,19 +531,19 @@ export default function Chat() {
             <span className="font-semibold">New Chat</span>
           </button>
 
-          <div className="text-xs text-slate-400 mb-3 uppercase tracking-wider font-semibold">Recent Chats</div>
-          <ul className="space-y-2 flex-grow overflow-y-auto custom-scrollbar-hide">
+          <div className="text-xs text-slate-500 mb-4 uppercase tracking-[0.18em] font-medium">Recent Chats</div>
+          <ul className="space-y-3 flex-grow overflow-y-auto custom-scrollbar-hide">
             {chats.map((chat, index) => (
               <li
                 key={chat.id}
-                className={`px-4 py-3 rounded-xl flex items-center justify-between hover:bg-slate-800/50 transition-all duration-200 cursor-pointer group border-l-2 ${
+                className={`px-4 py-3.5 rounded-xl flex items-center justify-between hover:bg-slate-800/55 transition-all duration-200 cursor-pointer group border border-transparent ${
                   selectedChat?.id === chat.id 
-                    ? "bg-slate-800/70 border-l-slate-500 shadow-lg" 
-                    : "border-l-transparent hover:border-l-slate-600"
+                    ? "bg-slate-800/80 border-slate-700/80" 
+                    : "hover:border-slate-800/90"
                 }`}
               >
                 <span
-                  className="flex-1 truncate font-medium text-sm"
+                  className="flex-1 truncate font-medium text-sm text-slate-300"
                   onClick={() => {
                     setSelectedChat(chat);
                     if (window.innerWidth < 768) setIsSidebarOpen(false);
@@ -573,21 +567,31 @@ export default function Chat() {
       </aside>
 
       {/* Main Area */}
-      <main className={`flex-1 flex flex-col items-center justify-center relative min-h-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:pl-72' : 'pl-0'}`}>
+      <main className={`flex-1 flex flex-col items-center justify-center relative min-h-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:pl-72' : 'pl-0'} ${isContextPanelOpen ? 'lg:pr-[22rem]' : 'pr-0'}`}>
+        <button
+          onClick={() => setIsContextPanelOpen((prev) => !prev)}
+          className="fixed top-4 right-16 z-50 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#1a212d]/90 border border-slate-700/70 text-slate-300 hover:text-slate-100 hover:bg-[#242d3a]/95 transition-all duration-200"
+          aria-label={isContextPanelOpen ? "Close context panel" : "Open context panel"}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+          <span className="text-xs font-medium tracking-wide">Context</span>
+        </button>
         {showWelcome ? (
           <div className="flex flex-col items-center justify-center h-full w-full text-center px-4">
-            <div className="w-20 h-20 mb-8 rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 animate-pulse mx-auto shadow-2xl"></div>
-            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Nice to see you, {username}</h1>
-            <p className="text-xl md:text-2xl text-slate-400 mt-4">Can I help you with anything?</p>
+            <div className="w-16 h-16 mb-8 rounded-full bg-gradient-to-br from-blue-500/70 to-slate-300/20 mx-auto"></div>
+            <h1 className="text-4xl md:text-5xl font-semibold text-slate-100 tracking-tight">Nice to see you, {username}</h1>
+            <p className="text-lg md:text-xl text-slate-400 mt-4 leading-relaxed">Can I help you with anything?</p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12 max-w-4xl w-full">
               {PRETRAINED_PROMPTS.map((prompt) => (
                 <button
                   key={prompt}
                   onClick={() => handlePromptClick(prompt)}
-                  className="bg-slate-800/40 backdrop-blur-sm p-6 rounded-2xl text-left hover:bg-slate-700/50 transition-all duration-300 border border-slate-700/30 hover:border-slate-600/50 hover:shadow-xl"
+                  className="bg-[#171d27]/70 backdrop-blur-sm p-6 rounded-2xl text-left hover:bg-[#1e2633]/80 transition-all duration-200 border border-slate-800/80"
                 >
-                  <p className="font-semibold text-md text-slate-200">{prompt}</p>
+                  <p className="font-medium text-[15px] text-slate-300 leading-relaxed">{prompt}</p>
                 </button>
               ))}
             </div>
@@ -596,37 +600,12 @@ export default function Chat() {
               <div className="relative flex items-center">
                 <input
                   type="text"
-                  className="w-full bg-slate-800/50 backdrop-blur-xl border border-slate-600/50 rounded-2xl p-6 pl-16 pr-16 outline-none text-lg text-white placeholder-slate-400 focus:border-blue-500/50 focus:bg-slate-700/50 transition-all duration-200 shadow-xl"
+                  className="w-full bg-[#161d27]/85 backdrop-blur-xl border border-slate-700/70 rounded-2xl p-6 pr-16 outline-none text-lg text-slate-100 placeholder-slate-500 focus:border-blue-400/70 focus:shadow-[0_0_0_4px_rgba(96,165,250,0.12)] transition-all duration-200"
                   placeholder="How can Luno help you today?"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   autoFocus
                 />
-                {/* Web Search Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setIsScrapingEnabled(!isScrapingEnabled)}
-                  className={`absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-lg transition-all duration-200 group ${
-                    isScrapingEnabled 
-                      ? 'bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-500/30' 
-                      : 'bg-slate-600/20 text-slate-400 hover:bg-slate-600/30 border border-slate-500/30'
-                  }`}
-                  title={isScrapingEnabled ? 'Web search enabled - Responses may take a few seconds for real-time data' : 'Training data only - Click to enable web search'}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3s-4.5 4.03-4.5 9 2.015 9 4.5 9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3l1.5 1.5" />
-                  </svg>
-                  {/* Status indicator */}
-                  <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full transition-colors duration-200 ${
-                    isScrapingEnabled ? 'bg-green-500' : 'bg-gray-500'
-                  }`}></div>
-                  {/* Tooltip on hover */}
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
-                    {isScrapingEnabled ? 'Web Search: ON • May take a few seconds' : 'Training Data Only'}
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                  </div>
-                </button>
                 <button 
                   type="submit" 
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-200 disabled:from-gray-600 disabled:to-gray-600 shadow-lg" 
@@ -637,29 +616,18 @@ export default function Chat() {
                   </svg>
                 </button>
               </div>
-              {/* Status indicator below input */}
-              <div className="flex items-center justify-center mt-3">
-                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs transition-all duration-200 ${
-                  isScrapingEnabled 
-                    ? 'bg-green-600/10 text-green-400 border border-green-500/20' 
-                    : 'bg-slate-600/10 text-slate-400 border border-slate-500/20'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full ${isScrapingEnabled ? 'bg-green-500' : 'bg-gray-500'}`}></div>
-                  <span>{isScrapingEnabled ? 'Web search enabled • May take a few seconds' : 'Training data only'}</span>
-                </div>
-              </div>
             </form>
           </div>
         ) : (
           <div className="w-full h-full flex flex-col max-w-5xl mx-auto px-4 pt-8">
-            <div className="flex-1 overflow-y-auto custom-scrollbar-hide pb-32">
+            <div className="flex-1 overflow-y-auto custom-scrollbar-hide pb-32 w-full max-w-3xl mx-auto">
               {messages.map((msg, i) => {
                 const isUser = msg.role === "user";
                 const messageContent = msg.content || msg.text || "";
                 return (
                   <div
                     key={i}
-                    className={`w-full flex items-start gap-4 mb-8 ${
+                    className={`w-full flex items-start gap-4 mb-10 ${
                       isUser ? "justify-end" : "justify-start"
                     }`}
                   >
@@ -670,17 +638,17 @@ export default function Chat() {
                     )}
                     <div className="max-w-[85%]">
                       <div
-                        className={`font-semibold text-slate-300 mb-2 text-sm ${
+                        className={`font-medium text-slate-400 mb-2 text-xs tracking-wide uppercase ${
                           isUser ? "text-right" : ""
                         }`}
                       >
                         {isUser ? username : "Luno"}
                       </div>
                       <div
-                        className={`text-slate-200 rounded-2xl relative group ${
+                        className={`text-slate-300 rounded-2xl relative group ${
                           isUser 
-                            ? "bg-slate-500/20 backdrop-blur-sm border border-slate-700/30 p-4" 
-                            : "bg-slate-800/40 backdrop-blur-sm border border-slate-700/30 p-5 shadow-lg"
+                            ? "bg-[#232d3b]/55 border border-slate-700/50 p-4" 
+                            : "bg-[#171e28]/60 border border-slate-800/70 p-5"
                         }`}
                       >
                         {msg.id === -1 ? (
@@ -767,40 +735,15 @@ export default function Chat() {
               })}
               <div ref={messagesEndRef} />
             </div>
-            <form onSubmit={handleSend} className="w-full max-w-4xl mx-auto pb-6">
+            <form onSubmit={handleSend} className="w-full max-w-3xl mx-auto pb-6">
               <div className="relative flex items-center">
                 <input
                   type="text"
-                  className="w-full bg-slate-800/50 backdrop-blur-xl border border-slate-600/50 rounded-2xl p-5 pl-16 pr-16 outline-none text-lg text-white placeholder-slate-400 focus:border-blue-500/50 focus:bg-slate-700/50 transition-all duration-200 shadow-xl"
+                  className="w-full bg-[#161d27]/90 backdrop-blur-xl border border-slate-700/80 rounded-2xl p-5 pr-16 outline-none text-lg text-slate-100 placeholder-slate-500 focus:border-blue-400/70 focus:shadow-[0_0_0_4px_rgba(96,165,250,0.12)] transition-all duration-200 shadow-[0_-6px_24px_rgba(0,0,0,0.16)]"
                   placeholder="Ask a follow-up..."
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                 />
-                {/* Web Search Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setIsScrapingEnabled(!isScrapingEnabled)}
-                  className={`absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all duration-200 group ${
-                    isScrapingEnabled 
-                      ? 'bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-500/30' 
-                      : 'bg-slate-600/20 text-slate-400 hover:bg-slate-600/30 border border-slate-500/30'
-                  }`}
-                  title={isScrapingEnabled ? 'Smart web search enabled - Click to use training data only' : 'Training data only - Click to enable smart web search'}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3s-4.5 4.03-4.5 9 2.015 9 4.5 9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3l1.5 1.5" />
-                  </svg>
-                  {/* Status indicator */}
-                  <div className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full transition-colors duration-200 ${
-                    isScrapingEnabled ? 'bg-green-500' : 'bg-gray-500'
-                  }`}></div>
-                  {/* Tooltip on hover */}
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                    {isScrapingEnabled ? 'Web Search: ON • May take a few seconds' : 'Training Data Only'}
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                  </div>
-                </button>
                 <button 
                   type="submit" 
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-xl bg-gradient-to-r from-slate-600 to-slate-700 hover:from-blue-600 hover:to-purple-600 transition-all duration-200 disabled:from-gray-600 disabled:to-gray-600 shadow-lg" 
@@ -815,6 +758,62 @@ export default function Chat() {
             </form>
           </div>
         )}
+
+        <aside
+          className={`fixed top-0 right-0 h-full w-[22rem] z-40 bg-[#161d28] border-l border-slate-800/90 shadow-2xl transition-transform duration-200 ease-in-out ${
+            isContextPanelOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+          aria-hidden={!isContextPanelOpen}
+        >
+          <div className="h-full flex flex-col pt-20 px-5 pb-5">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-sm font-semibold tracking-[0.08em] uppercase text-slate-300">Context Panel</h2>
+              <button
+                onClick={() => setIsContextPanelOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800/70 transition-colors"
+                aria-label="Close context panel"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <section className="pb-5 border-b border-slate-800/80">
+              <h3 className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 mb-3">Memory</h3>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Active thread context and user preferences will appear here to keep responses consistent and focused.
+              </p>
+            </section>
+
+            <section className="py-5 border-b border-slate-800/80">
+              <h3 className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 mb-3">Sources</h3>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                References and retrieved knowledge can be inspected here when source attribution is available.
+              </p>
+            </section>
+
+            <section className="py-5">
+              <h3 className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 mb-3">Prompt Settings</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1.5">Tone</label>
+                  <select className="w-full rounded-xl bg-[#1c2430] border border-slate-700/80 px-3 py-2 text-sm text-slate-300 outline-none focus:border-blue-400/70 transition-colors">
+                    <option>Balanced</option>
+                    <option>Concise</option>
+                    <option>Detailed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1.5">Model</label>
+                  <div className="rounded-xl bg-[#1c2430] border border-slate-700/80 px-3 py-2 text-sm text-slate-300">
+                    Gemini 2.5 Flash Lite
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </aside>
       </main>
 
       {/* Hide scrollbar styling */}

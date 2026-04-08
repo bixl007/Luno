@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { userId } = getAuth(req);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { title, firstMessage, isScrapingEnabled } = await req.json();
+  const { title, firstMessage } = await req.json();
 
   let dbUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!dbUser) {
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       },
       include: { messages: true }
     });
-    const aiContent = await generateGeminiResponse(firstMessage, null, isScrapingEnabled);
+    const aiContent = await generateGeminiResponse(firstMessage, null);
     if (aiContent) {
       await prisma.user.upsert({
         where: { id: 'luno-ai' },

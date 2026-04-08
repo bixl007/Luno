@@ -1,79 +1,8 @@
 import axios from "axios";
-import { searchAndScrape } from "./search-improved";
-import { scrapeUrlContent } from "./scraper";
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const GEMINI_API_KEY = process.env.BOT_API!;
-
-function needsWebSearch(prompt: string): boolean {
-  const lowerPrompt = prompt.toLowerCase();
-  
-  const currentInfoKeywords = [
-    'weather', 'current', 'now', 'today', 'latest', 'recent', 'news', 
-    'price', 'stock', 'rate', 'score', 'result', 'update', 'status',
-    'what is happening', 'what happened', 'live', 'real-time', 'breaking',
-    'current events', 'this week', 'this month', 'this year', '2024', '2025',
-    'trending', 'popular now', 'recent developments', 'time', 'clock',
-    'what time', 'current time'
-  ];
-  
-  const timeSensitivePhrases = [
-    'what time', 'when is', 'how much does', 'where is', 'who is currently',
-    'current price of', 'latest news about', 'recent update on', 'status of',
-    'current time in', 'time in', 'what is the time'
-  ];
-  
-  const versionIndicators = [
-    /\d+\.\d+/,
-    /version \d+/, /v\d+/, /model \d+/,
-    /(gpt|chatgpt|claude|gemini|llama)[-\s]*\d+/,
-    /\b(pro|plus|premium|advanced|next|new)\b/
-  ];
-  
-  for (const keyword of currentInfoKeywords) {
-    if (lowerPrompt.includes(keyword)) {
-      return true;
-    }
-  }
-  
-  for (const phrase of timeSensitivePhrases) {
-    if (lowerPrompt.includes(phrase)) {
-      return true;
-    }
-  }
-  
-  for (const pattern of versionIndicators) {
-    if (pattern.test(lowerPrompt)) {
-      return true;
-    }
-  }
-  
-  const questionWords = ['what', 'who', 'where', 'when', 'how', 'why'];
-  const hasQuestionWord = questionWords.some(word => lowerPrompt.includes(word));
-  
-  if (hasQuestionWord) {
-    const hasProperNoun = /[A-Z][a-z]+\s+[A-Z][a-z]+/.test(prompt);
-    if (hasProperNoun) {
-      return true;
-    }
-  }
-  
-  const questionPatterns = [
-    /what.*(is|are).*(new|latest|current)/,
-    /when.*(will|did).*(release|launch|come out)/,
-    /how much.*(cost|price)/,
-    /where.*(can i|to).*(buy|get|find)/,
-    /who.*(won|is leading|currently)/
-  ];
-  
-  for (const pattern of questionPatterns) {
-    if (pattern.test(lowerPrompt)) {
-      return true;
-    }
-  }
-  
-  return false;
-}
 
 function needsCreatorDetails(prompt: string): boolean {
   const lowerPrompt = prompt.toLowerCase();
@@ -107,10 +36,7 @@ function needsCreatorDetails(prompt: string): boolean {
 }
 
 
-export async function generateGeminiResponse(prompt: string, context?: string | null, isScrapingEnabled?: boolean) {
-  const shouldUseWebSearch = isScrapingEnabled === true;
-  
-  const queryNeedsCurrentInfo = needsWebSearch(prompt);
+export async function generateGeminiResponse(prompt: string, context?: string | null) {
   const queryNeedsCreatorDetails = needsCreatorDetails(prompt);
   
   const personaInstruction = "You are a helpful, friendly, and knowledgeable AI assistant named Luno. Answer clearly and concisely without introducing yourself unless specifically asked.";
@@ -128,12 +54,8 @@ export async function generateGeminiResponse(prompt: string, context?: string | 
 - **Additional Resources:** You can check out Bishal's coding activity and projects on his website
 
 **For More Detailed Information:**
-${queryNeedsCreatorDetails ? 'IMPORTANT: This query is asking for detailed creator information - use the scraping commands below.' : ''}
-If the user asks for more details, recent projects, GitHub activity, or wants to see his resume/portfolio, automatically use these commands:
-- For GitHub projects and activity: [scrape: https://github.com/bixl007]
-- For detailed resume/CV information: [scrape: https://res.cloudinary.com/dqlku2tfk/image/upload/v1755164745/Bishal_Baira_EResume_cfitho.pdf]
-
-Use these scraping commands when users specifically ask for:
+${queryNeedsCreatorDetails ? 'IMPORTANT: This query is asking for detailed creator information - provide a comprehensive answer using known information.' : ''}
+When users specifically ask for the following, provide as much detail as possible from your known information:
 - "More information about the creator"
 - "Recent projects by Bishal"
 - "GitHub activity" or "GitHub projects"
@@ -142,25 +64,14 @@ Use these scraping commands when users specifically ask for:
 - "Skills" or "technical expertise"
 
 Respond warmly and provide comprehensive information when users ask about your creator or developer.`;
-  
-  const scrapingInstruction = shouldUseWebSearch
-    ? `You have access to real-time web search capabilities. When the user asks questions that require current information, recent events, live data, weather, news, prices, or any information that might have changed recently, you should automatically use the special command \`[search: QUERY]\` to search the web. For example:
-    - For "What is the weather in London?" → use \`[search: weather in London]\`
-    - For "Latest news about Tesla" → use \`[search: latest news Tesla]\`
-    - For "Current price of Bitcoin" → use \`[search: Bitcoin price today]\`
-    - For "What happened in the world today?" → use \`[search: world news today]\`
-    
-    ${queryNeedsCurrentInfo ? 'IMPORTANT: This query appears to need current information - consider searching before responding.' : 'This query appears to be general knowledge that may not require search.'}
-    
-    If the user provides a specific URL, use the \`[scrape: URL]\` command instead.`
-    : `You do not have access to external websites or web search capabilities. You can only answer based on your training data (which goes up to mid-2025). If the user asks for current information, real-time data, or recent events, politely explain that you cannot access current information and suggest they check reliable sources for up-to-date information.`;
+
+  const capabilityInstruction = "You do not have access to external websites or real-time web search. You can only answer based on your training data (which goes up to mid-2025). If the user asks for current information, real-time data, or recent events, politely explain that you cannot access current information and suggest they check reliable sources for up-to-date information.";
 
   const contextPrompt = context ? `Here is the conversation history:\n${context}\n\n` : "";
-  const fullPrompt = `System instructions:\n- ${personaInstruction}\n- ${introductionInstruction}\n- ${formatInstruction}\n- ${creatorInstruction}\n- ${scrapingInstruction}\n\n${contextPrompt}User prompt: ${prompt}`;
+  const fullPrompt = `System instructions:\n- ${personaInstruction}\n- ${introductionInstruction}\n- ${formatInstruction}\n- ${creatorInstruction}\n- ${capabilityInstruction}\n\n${contextPrompt}User prompt: ${prompt}`;
 
   try {
     console.log("🤖 Sending request to Gemini API");
-    console.log("🔍 Web search enabled:", shouldUseWebSearch);
     
     const response = await axios.post(
       `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
@@ -171,32 +82,7 @@ Respond warmly and provide comprehensive information when users ask about your c
       }
     );
     const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
     console.log("🤖 AI Response received");
-
-    const searchMatch = content.match(/\[search:\s*([^\]]+)\s*\]/);
-    if (shouldUseWebSearch && searchMatch) {
-      const query = searchMatch[1];
-      console.log(`🔍 Performing web search for: ${query}`);
-      const searchResult = await searchAndScrape(query);
-      const newPrompt = `Based on the following search results, please answer the user's original question: "${prompt}"\n\nSearch Results:\n${searchResult}\n\nPlease provide a comprehensive answer based on this information.`;
-      return generateGeminiResponse(newPrompt, context, false); 
-    } else if (shouldUseWebSearch) {
-      console.log("⚠️ Web search was enabled but AI didn't use search command");
-    }
-
-    const scrapeMatch = content.match(/\[scrape:\s*([^\s\]]+)\s*\]/);
-    if (shouldUseWebSearch && scrapeMatch) {
-      let url = scrapeMatch[1];
-      if (!/^https?:\/\//i.test(url)) {
-        url = `https://${url}`;
-      }
-      console.log(`Scraping content from: ${url}`);
-      const scrapedContent = await scrapeUrlContent(url);
-      const newPrompt = `Based on the following content from ${url}, please answer the user's original question: "${prompt}"\n\nScraped Content:\n${scrapedContent}`;
-      return generateGeminiResponse(newPrompt, context, false); 
-    }
-
     return content;
   } catch (error: any) {
     console.error("Gemini API error:", error?.response?.data || error.message);

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { userId } = getAuth(req);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { chatId, content, isScrapingEnabled } = await req.json();
+  const { chatId, content } = await req.json();
   if (!chatId || !content) return NextResponse.json({ error: 'Missing data' }, { status: 400 });
 
   const chat = await prisma.chat.findUnique({ where: { id: Number(chatId) } });
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   });
   await prisma.chat.update({ where: { id: Number(chatId) }, data: { updatedAt: new Date() } });
 
-  const aiContent = await generateGeminiResponse(content, chat.context, isScrapingEnabled);
+  const aiContent = await generateGeminiResponse(content, chat.context);
   let aiMessage = null;
   if (aiContent) {
     await prisma.user.upsert({
