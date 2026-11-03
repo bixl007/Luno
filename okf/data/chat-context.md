@@ -5,7 +5,7 @@ description: "How conversation history is stored in Chat.context and fed back to
 resource: ../../src/lib/ai/prompt.ts
 tags: [data, context, gemini]
 status: stable
-generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T13:06:00Z }
+generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T15:10:00Z }
 ---
 
 # Format

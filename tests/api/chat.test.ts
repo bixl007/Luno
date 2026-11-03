@@ -141,3 +141,22 @@ test("DELETE does not touch another user's chat", async () => {
 test("DELETE of an unknown chat is a 404", async () => {
   assert.equal((await route.DELETE(request("DELETE", "/api/chat?chatId=999"))).status, 404);
 });
+
+test("POST can start a chat with only a file, and names it after the file", async () => {
+  const api = stubGemini({ replies: [stream([{ text: "A cat." }])], title: "Cat Photo" });
+
+  const res = await route.POST(request("POST", "/api/chat", { firstMessage: "", attachments: [{ name: "cat.png", mimeType: "image/png", data: "AAAA" }] }));
+  const { chat } = await doneOf(res);
+
+  assert.equal(chat.title, "Cat Photo");
+  assert.deepEqual(chat.messages[0].attachments, [{ name: "cat.png", mimeType: "image/png" }]);
+  assert.equal(api.titleCalls()[0].body.contents[0].parts[0].text, "cat.png");
+  assert.equal(api.chatCalls()[0].body.contents[0].parts[0].inlineData.data, "AAAA");
+});
+
+test("POST refuses attachments that are not allowed, before creating a chat", async () => {
+  const res = await route.POST(request("POST", "/api/chat", { firstMessage: "hi", attachments: [{ name: "a.zip", mimeType: "application/zip", data: "AAAA" }] }));
+
+  assert.equal(res.status, 400);
+  assert.equal(db.chats.length, 0);
+});

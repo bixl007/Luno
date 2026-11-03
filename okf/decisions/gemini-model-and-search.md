@@ -1,11 +1,11 @@
 ---
 type: Decision
 title: Gemini model and search choice
-description: Why chat uses gemini-3.8-flash while web search runs on gemini-2.5-flash-lite with Google Search grounding.
+description: Why chat uses gemini-3.8-flash while web search asks DuckDuckGo first, because Gemini's Google Search grounding is no longer free.
 resource: ../../src/lib/ai/webSearch.ts
 tags: [decision, gemini, search, cost]
 status: stable
-generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T21:00:00Z }
+generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T22:30:00Z }
 stale_after: 2027-01-03T00:00:00Z
 sources:
   - id: gemini-pricing
@@ -16,7 +16,7 @@ sources:
 # Decision
 
 * **Chat** uses `gemini-3.8-flash`, the newest model with a free tier.[^gemini-pricing]
-* **Search** is a tool the chat model calls. It runs on `gemini-2.5-flash-lite` with Google Search grounding, not on the chat model. See [web search](/ai/web-search.md) and [reply loop](/ai/reply-loop.md).
+* **Search** is a tool the chat model calls. It reads DuckDuckGo's results page, with Gemini's Google Search grounding as a fallback, not on the chat model. See [web search](/ai/web-search.md) and [reply loop](/ai/reply-loop.md).
 
 * **Failover:** when the chat model is overloaded (`503 UNAVAILABLE`), the call moves to `gemini-3.6-flash`, then `gemini-3.5-flash-lite`, instead of failing, and slow models are hedged and demoted ([failover](/ai/failover.md)) ([chat model](/ai/chat-model.md)).
 * **Fresh-data questions** are searched automatically before the model answers ([auto search](/ai/auto-search.md)); the model can still search on its own.
@@ -42,3 +42,7 @@ sources:
 The free tier changes, `gemini-2.5-flash-lite` is retired too, a newer free model supports grounding, or the project moves to a paid plan. Then `GEMINI_SEARCH_MODEL` can point at the chat model and the split can go away ([environment](/operations/environment.md)).
 
 [^gemini-pricing]: Gemini API pricing page, read on 2026-11-03.
+
+# Update 2026-11-03
+
+A real free key now gets `404` from both Gemini 2.5 models and `429` from every Gemini 3.x model for grounded requests, so the decision above no longer holds for free keys: search moved to DuckDuckGo first, see [web search](/ai/web-search.md).

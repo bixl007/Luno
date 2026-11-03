@@ -1,107 +1,83 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { notify } from "@/components/ui/Toaster";
+import { printMessage } from "./printMessage";
+import { chunkForSpeech, cleanForSpeech, pickVoice, VOICE_KEY } from "./speech";
 
-/** Copy, read-aloud and PDF export for a chat message. */
+/** Copy, read-aloud and PDF export (through the print dialog) for a chat message. */
 export function useMessageActions() {
-  const [isListening, setIsListening] = useState<number | null>(null);
-  const [speechCancelled, setSpeechCancelled] = useState(false);
+  const [isListening, setIsListeningState] = useState<number | null>(null);
+  // The same value in a ref: memoised bubbles can hold an old `speak`, which must still see who is speaking now.
+  const listening = useRef<number | null>(null);
+  const setIsListening = useCallback((index: number | null) => {
+    listening.current = index;
+    setIsListeningState(index);
+  }, []);
+  // Bumped on every start and stop; a chunk that finishes under an old number knows it was cancelled and goes quiet.
+  const session = useRef(0);
+  // Browsers drop an utterance that nothing references, which silently ends the speech early.
+  const current = useRef<SpeechSynthesisUtterance | null>(null);
+
+  const stop = useCallback(() => {
+    session.current++;
+    current.current = null;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    setIsListening(null);
+  }, [setIsListening]);
+
+  useEffect(() => stop, [stop]);
 
   const speak = (text: string, messageIndex: number) => {
     if (!("speechSynthesis" in window)) {
       notify.error("Speech synthesis not supported in this browser");
       return;
     }
-
-    // Stop any ongoing speech
-    if (window.speechSynthesis.speaking || isListening === messageIndex) {
-      setSpeechCancelled(true);
-      setIsListening(null);
-
-      // Use a timeout to prevent race conditions
-      setTimeout(() => {
-        window.speechSynthesis.cancel();
-        notify.info("Speech stopped", 1500);
-        // Reset flag after a short delay
-        setTimeout(() => setSpeechCancelled(false), 500);
-      }, 50);
+    if (listening.current === messageIndex) {
+      stop();
       return;
     }
+    stop();
 
-    // Clean text for speech (remove markdown formatting)
-    const cleanText = text
-      .replace(/```[\s\S]*?```/g, " Code block. ") // Replace code blocks first
-      .replace(/`([^`]+)`/g, "$1") // Remove inline code backticks
-      .replace(/#{1,6}\s*/g, "") // Remove headers
-      .replace(/\*\*(.*?)\*\*/g, "$1") // Remove bold
-      .replace(/\*(.*?)\*/g, "$1") // Remove italic
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Remove links, keep text
-      .replace(/[*_~`#]/g, "") // Remove remaining markdown symbols
-      .replace(/\s+/g, " ") // Replace multiple spaces with single space
-      .trim();
-
-    if (!cleanText || cleanText.length < 3) {
+    const chunks = chunkForSpeech(cleanForSpeech(text));
+    if (chunks.length === 0) {
       notify.error("No readable text found", 1500);
       return;
     }
 
+    let saved: string | null = null;
     try {
-      // Reset cancellation flag
-      setSpeechCancelled(false);
-
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 0.8;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-      utterance.lang = "en-US";
-
-      utterance.onstart = () => {
-        if (!speechCancelled) {
-          setIsListening(messageIndex);
-          notify.info("Reading message aloud");
-        }
-      };
-
-      utterance.onend = () => {
-        if (!speechCancelled) {
-          setIsListening(null);
-          notify.info("Finished reading", 1500);
-        }
-        setSpeechCancelled(false);
-      };
-
-      utterance.onerror = (event) => {
-        console.error("Speech synthesis error:", event);
-        setIsListening(null);
-        // Only show error toast if it's not a cancellation
-        if (!speechCancelled && event.error !== "canceled" && event.error !== "interrupted") {
-          notify.error("Speech failed. Try again.");
-        }
-        setSpeechCancelled(false);
-      };
-
-      // Speak with a small delay to ensure proper initialization
-      setTimeout(() => {
-        if (!speechCancelled) {
-          try {
-            window.speechSynthesis.speak(utterance);
-          } catch (error) {
-            console.error("Error speaking:", error);
-            if (!speechCancelled) {
-              setIsListening(null);
-              notify.error("Speech failed to start");
-            }
-          }
-        }
-      }, 100);
-    } catch (error) {
-      console.error("Speech synthesis setup error:", error);
-      if (!speechCancelled) {
-        setIsListening(null);
-        notify.error("Speech synthesis failed");
-      }
+      saved = localStorage.getItem(VOICE_KEY);
+    } catch {
+      // Storage can be blocked; the default voice is fine.
     }
+    const voice = pickVoice(window.speechSynthesis.getVoices(), saved, navigator.language || "en-US");
+    const mine = ++session.current;
+    setIsListening(messageIndex);
+
+    let next = 0;
+    const speakNext = () => {
+      if (mine !== session.current) return;
+      if (next >= chunks.length) {
+        setIsListening(null);
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(chunks[next++]);
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang;
+      }
+      utterance.onend = speakNext;
+      utterance.onerror = (event) => {
+        if (mine !== session.current || event.error === "canceled" || event.error === "interrupted") return;
+        stop();
+        notify.error("Speech failed. Try again.");
+      };
+      current.current = utterance;
+      window.speechSynthesis.speak(utterance);
+    };
+    // Chrome ignores a speak() made in the same tick as cancel().
+    setTimeout(speakNext, 60);
   };
 
   async function writeClipboard(text: string) {
@@ -128,56 +104,15 @@ export function useMessageActions() {
     notify.success(`${language ? language.toUpperCase() + " " : ""}code copied`);
   };
 
-  const exportAsPDF = async (content: string, messageIndex: number) => {
+  const exportAsPDF = async (_content: string, messageIndex: number) => {
+    const source = document.querySelector<HTMLElement>(`[data-message-index="${messageIndex}"]`);
+    if (!source) {
+      notify.error("Couldn't find that message to export");
+      return;
+    }
     try {
-      notify.info("Generating PDF…");
-
-      // Loaded on demand: the PDF library is large and most sessions never export.
-      const { default: jsPDF } = await import("jspdf");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 20;
-      const maxWidth = pageWidth - 2 * margin;
-
-      pdf.setFontSize(20);
-      pdf.setFont("helvetica", "bold");
-      pdf.text("Luno Chat Export", margin, margin + 10);
-
-      pdf.setFontSize(10);
-      pdf.setFont("helvetica", "normal");
-      pdf.text(`Generated on ${new Date().toLocaleString()}`, margin, margin + 20);
-
-      pdf.line(margin, margin + 25, pageWidth - margin, margin + 25);
-
-      // Clean content for PDF
-      const cleanContent = content
-        .replace(/#{1,6}\s?/g, "") // Remove headers
-        .replace(/\*\*(.*?)\*\*/g, "$1") // Remove bold
-        .replace(/\*(.*?)\*/g, "$1") // Remove italic
-        .replace(/`(.*?)`/g, "$1") // Remove inline code
-        .replace(/```[\s\S]*?```/g, "[Code Block]") // Replace code blocks
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Remove links, keep text
-        .replace(/[#*`_~]/g, "") // Remove remaining markdown
-        .trim();
-
-      pdf.setFontSize(12);
-      pdf.setFont("helvetica", "normal");
-
-      const lines = pdf.splitTextToSize(cleanContent, maxWidth);
-      let yPosition = margin + 35;
-
-      for (let i = 0; i < lines.length; i++) {
-        if (yPosition > pageHeight - margin) {
-          pdf.addPage();
-          yPosition = margin;
-        }
-        pdf.text(lines[i], margin, yPosition);
-        yPosition += 7;
-      }
-
-      pdf.save(`luno-message-${messageIndex}-${Date.now()}.pdf`);
-      notify.success("PDF exported");
+      notify.info("In the print window, choose Save as PDF", 3500);
+      await printMessage(source);
     } catch (error) {
       console.error("Error exporting PDF:", error);
       notify.error("Failed to export PDF");

@@ -20,6 +20,8 @@ model User {
   email     String   @unique
   chats     Chat[]
   messages  Message[]
+  // Profile and AI personalisation, validated by src/lib/preferences.ts
+  preferences Json?
   createdAt DateTime @default(now())
 }
 
@@ -43,4 +45,6 @@ model Message {
   user      User     @relation(fields: [userId], references: [id])
   userId    String   
   role      String
+  // Name and type of each file sent with the message; the files themselves are not stored
+  attachments Json?
 }

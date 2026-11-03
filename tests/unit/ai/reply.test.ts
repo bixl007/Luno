@@ -4,11 +4,12 @@ import { Readable } from "node:stream";
 import { generateGeminiResponse, withoutSources } from "@/lib/ai/reply";
 import type { StreamEvent } from "@/lib/http/ndjson";
 import { GEMINI_MODELS } from "@/lib/ai/gemini";
-import { failure, hang, outage, searchCall, sseEvent, stream, stubGemini } from "../../helpers/gemini";
+import { failure, compatStream, compatToolStream, hang, outage, searchCall, sseEvent, stream, stubGemini } from "../../helpers/gemini";
+import type { ReplyOptions } from "@/lib/ai/reply";
 
-async function reply(prompt: string, context: string | null = null) {
+async function reply(prompt: string, context: string | null = null, options?: ReplyOptions) {
   const events: StreamEvent[] = [];
-  const text = await generateGeminiResponse(prompt, context, (event) => events.push(event));
+  const text = await generateGeminiResponse(prompt, context, (event) => events.push(event), options);
   return { text, events, deltas: events.flatMap((e) => (e.type === "delta" ? [e.text] : [])) };
 }
 
@@ -339,4 +340,168 @@ test("a model that breaks while answering is not used first on the next reply", 
   await reply("second question");
 
   assert.equal(api.chatCalls().at(-1)?.model, GEMINI_MODELS[1]);
+});
+
+const photo = { name: "a.png", mimeType: "image/png", data: "AAAA" };
+const pdf = { name: "b.pdf", mimeType: "application/pdf", data: "BBBB" };
+
+test("attached files are sent to Gemini before the text", async () => {
+  const api = stubGemini({ replies: [stream([{ text: "A cat." }])] });
+
+  await reply("what is this?", null, { attachments: [photo] });
+
+  const parts = api.chatCalls()[0].body.contents[0].parts;
+  assert.deepEqual(parts[0], { inlineData: { mimeType: "image/png", data: "AAAA" } });
+  assert.equal(parts[1].text, "what is this?");
+});
+
+test("a picked Gemini model is the only one tried", async () => {
+  const api = stubGemini({ replies: [failure(503)] });
+  const picked = GEMINI_MODELS[GEMINI_MODELS.length - 1];
+
+  const { text } = await reply("hi", null, { model: picked });
+
+  assert.deepEqual(api.chatCalls().map((c) => c.model), [picked]);
+  assert.match(text, /overloaded/);
+});
+
+test("the preferences reach the system instruction", async () => {
+  const api = stubGemini({ replies: [stream([{ text: "Hi Bix." }])] });
+
+  await reply("hi", null, { preferences: { nickname: "Bix", occupation: "", about: "", instructions: "", style: "default", accent: "indigo", companion: true } });
+
+  assert.match(api.chatCalls()[0].body.systemInstruction.parts[0].text, /Call the user "Bix"/);
+});
+
+test("the Groq model streams its answer and sees images as data URLs", async () => {
+  process.env.GROQ_API_KEY = "test";
+  const api = stubGemini({ compatReplies: [compatStream("A ", "cat.")] });
+
+  const { text, deltas } = await reply("what is this?", null, { model: "qwen/qwen3.8-27b", attachments: [photo] });
+
+  delete process.env.GROQ_API_KEY;
+  assert.equal(text, "A cat.");
+  assert.deepEqual(deltas, ["A ", "cat."]);
+  assert.equal(api.chatCalls().length, 0, "Gemini is not used");
+  const content = api.compatCalls()[0].body.messages![1].content;
+  assert.equal(content[1].image_url.url, "data:image/png;base64,AAAA");
+  assert.ok(api.compatCalls()[0].body.messages![0].content.includes("web_search"), "the model is told it has the search tool");
+});
+
+test("Groq is skipped for a PDF, which only Gemini can read", async () => {
+  process.env.GROQ_API_KEY = "test";
+  const api = stubGemini({ replies: [stream([{ text: "Read it." }])] });
+
+  const { text, events } = await reply("summarise", null, { model: "qwen/qwen3.8-27b", attachments: [pdf] });
+
+  delete process.env.GROQ_API_KEY;
+  assert.equal(text, "Read it.");
+  assert.equal(api.compatCalls().length, 0);
+  assert.ok(events.some((e) => e.type === "status" && /Gemini/.test(e.text)));
+});
+
+test("when Groq fails before answering, Gemini takes over", async () => {
+  process.env.GROQ_API_KEY = "test";
+  const api = stubGemini({ compatReplies: [failure(429)], replies: [stream([{ text: "From Gemini." }])] });
+
+  const { text } = await reply("hi", null, { model: "qwen/qwen3.8-27b" });
+
+  delete process.env.GROQ_API_KEY;
+  assert.equal(text, "From Gemini.");
+  assert.equal(api.compatCalls().length, 1);
+  assert.equal(api.chatCalls().length, 1);
+});
+
+test("OpenRouter requests go to its own API with its own key and title", async () => {
+  process.env.OPENROUTER_API_KEY = "ok";
+  const api = stubGemini({ compatReplies: [compatStream("Router says hi.")] });
+
+  const { text } = await reply("hi", null, { model: "openrouter/free" });
+
+  delete process.env.OPENROUTER_API_KEY;
+  assert.equal(text, "Router says hi.");
+  const [call] = api.compatCalls();
+  assert.equal(call.url, "https://openrouter.ai/api/v1/chat/completions");
+  assert.equal(call.headers!.Authorization, "Bearer ok");
+  assert.equal(call.headers!["X-Title"], "Luno");
+  assert.equal(api.chatCalls().length, 0);
+});
+
+test("a reply about a file waits longer for the model than a plain one", async () => {
+  const api = stubGemini({ replies: [stream([{ text: "A." }]), stream([{ text: "B." }])] });
+
+  await reply("hi");
+  await reply("what is this?", null, { attachments: [photo] });
+
+  const [plain, withFile] = api.chatCalls();
+  assert.ok(withFile.timeout! > plain.timeout!, `${withFile.timeout} should be above ${plain.timeout}`);
+});
+
+test("when every model times out the user is told so and can pick another model", async () => {
+  const timeout = () => Object.assign(new Error("timeout of 15000ms exceeded"), { code: "ECONNABORTED" });
+  stubGemini({ replies: GEMINI_MODELS.map(timeout) });
+
+  const { text } = await reply("hi");
+
+  assert.match(text, /took too long/);
+  assert.match(text, /different model/);
+});
+
+test("Auto tries the fast provider first when its key is set, and never touches Gemini if it answers", async () => {
+  process.env.GROQ_API_KEY = "g";
+  const api = stubGemini({ compatReplies: [compatStream("Quick.")] });
+
+  const { text } = await reply("hi");
+
+  delete process.env.GROQ_API_KEY;
+  assert.equal(text, "Quick.");
+  assert.equal(api.compatCalls().length, 1);
+  assert.equal(api.chatCalls().length, 0);
+});
+
+test("Auto falls back to Gemini when the fast provider fails, and AUTO_PREFER_GEMINI skips it", async () => {
+  process.env.GROQ_API_KEY = "g";
+  const api = stubGemini({ compatReplies: [failure(404)], replies: [stream([{ text: "From Gemini." }]), stream([{ text: "Gemini first." }])] });
+
+  assert.equal((await reply("hi")).text, "From Gemini.");
+  assert.equal(api.compatCalls().length, 1);
+
+  process.env.AUTO_PREFER_GEMINI = "1";
+  assert.equal((await reply("hi again")).text, "Gemini first.");
+  delete process.env.AUTO_PREFER_GEMINI;
+  delete process.env.GROQ_API_KEY;
+  assert.equal(api.compatCalls().length, 1, "no second Groq call when Gemini is preferred");
+});
+
+test("a fast-provider model can search: the tool call is run, answered, and the sources are appended", async () => {
+  process.env.GROQ_API_KEY = "g";
+  const api = stubGemini({ compatReplies: [compatToolStream("india cricket schedule"), compatStream("India play ", "Australia next.")] });
+
+  const { text } = await reply("What matches does India play next?");
+
+  delete process.env.GROQ_API_KEY;
+  assert.match(text, /^India play Australia next\./);
+  assert.match(text, /\*\*Sources\*\*\n- \[a\.com\]/);
+  assert.equal(api.searchCalls().length, 1);
+  assert.equal(api.chatCalls().length, 0, "Gemini only searched; it did not answer");
+  const [first, second] = api.compatCalls();
+  assert.ok(first.body.tools, "the first call offers the tool");
+  const turn = second.body.messages!;
+  assert.equal(turn[2].role, "assistant");
+  assert.deepEqual(turn[2].tool_calls![0].function, { name: "web_search", arguments: '{"query":"india cricket schedule"}' });
+  assert.equal(turn[3].role, "tool");
+  assert.equal(turn[3].tool_call_id, "call_1");
+  assert.match(turn[3].content, /Fresh facts\./);
+});
+
+test("a malformed tool call from a fast-provider model gets an error response, not a search", async () => {
+  process.env.GROQ_API_KEY = "g";
+  const api = stubGemini({ compatReplies: [compatToolStream(""), compatStream("Fine.")] });
+
+  const { text } = await reply("hello there");
+
+  delete process.env.GROQ_API_KEY;
+  assert.equal(text, "Fine.");
+  assert.equal(api.searchCalls().length, 0);
+  assert.match(api.compatCalls()[1].body.messages![3].content, /Invalid tool call/);
 });

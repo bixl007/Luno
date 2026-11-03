@@ -85,6 +85,8 @@
 
 :root {
   --radius: 0.625rem;
+  /* Hue of the accent colour; the chat page changes it from the user's profile setting. */
+  --accent-hue: 275;
 
   --background: oklch(0.985 0.005 85);
   --foreground: oklch(0.22 0.012 70);
@@ -101,16 +103,16 @@
   --subtle-foreground: oklch(0.62 0.01 75);
   --accent: oklch(0.94 0.008 85);
   --accent-foreground: oklch(0.22 0.012 70);
-  --brand: oklch(0.5 0.15 275);
+  --brand: oklch(0.5 0.15 var(--accent-hue));
   --brand-foreground: oklch(0.99 0.004 85);
-  --brand-soft: oklch(0.95 0.025 275);
+  --brand-soft: oklch(0.95 0.025 var(--accent-hue));
   --destructive: oklch(0.54 0.2 27);
   --destructive-soft: oklch(0.96 0.025 27);
   --success: oklch(0.52 0.12 155);
   --border: oklch(0.915 0.008 85);
   --border-strong: oklch(0.86 0.01 85);
   --input: oklch(0.88 0.01 85);
-  --ring: oklch(0.58 0.13 275);
+  --ring: oklch(0.58 0.13 var(--accent-hue));
   --sidebar: oklch(0.968 0.007 85);
   --sidebar-foreground: oklch(0.3 0.012 70);
   --sidebar-accent: oklch(0.93 0.009 85);
@@ -136,16 +138,16 @@
   --subtle-foreground: oklch(0.56 0.01 75);
   --accent: oklch(0.28 0.01 70);
   --accent-foreground: oklch(0.945 0.006 85);
-  --brand: oklch(0.74 0.12 275);
-  --brand-foreground: oklch(0.2 0.03 275);
-  --brand-soft: oklch(0.28 0.045 275);
+  --brand: oklch(0.74 0.12 var(--accent-hue));
+  --brand-foreground: oklch(0.2 0.03 var(--accent-hue));
+  --brand-soft: oklch(0.28 0.045 var(--accent-hue));
   --destructive: oklch(0.7 0.17 25);
   --destructive-soft: oklch(0.28 0.05 25);
   --success: oklch(0.72 0.13 155);
   --border: oklch(0.3 0.009 70);
   --border-strong: oklch(0.38 0.01 70);
   --input: oklch(0.34 0.01 70);
-  --ring: oklch(0.68 0.12 275);
+  --ring: oklch(0.68 0.12 var(--accent-hue));
   --sidebar: oklch(0.155 0.007 70);
   --sidebar-foreground: oklch(0.85 0.008 80);
   --sidebar-accent: oklch(0.235 0.009 70);
@@ -208,5 +210,90 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Landing page extras: aurora background, gradient text, grid, small loops.
+   Built only from the tokens above, so both themes follow. Reduced motion is
+   handled by the global rule above (animations collapse to one instant frame).
+   --------------------------------------------------------------------------- */
+@keyframes aurora-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(5%, 7%, 0) scale(1.12); }
+}
+@keyframes gradient-pan {
+  to { background-position: 200% center; }
+}
+@keyframes caret-blink {
+  50% { opacity: 0; }
+}
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  animation: aurora-drift 18s ease-in-out infinite;
+}
+.aurora-brand { background: radial-gradient(closest-side, color-mix(in oklch, var(--brand) 34%, transparent), transparent); }
+.aurora-warm { background: radial-gradient(closest-side, color-mix(in oklch, var(--destructive) 22%, transparent), transparent); }
+.aurora-cool { background: radial-gradient(closest-side, color-mix(in oklch, var(--success) 20%, transparent), transparent); }
+.dark .aurora-brand { background: radial-gradient(closest-side, color-mix(in oklch, var(--brand) 26%, transparent), transparent); }
+.dark .aurora-warm { background: radial-gradient(closest-side, color-mix(in oklch, var(--destructive) 16%, transparent), transparent); }
+.dark .aurora-cool { background: radial-gradient(closest-side, color-mix(in oklch, var(--success) 14%, transparent), transparent); }
+
+.text-gradient-brand {
+  color: var(--brand);
+  background-image: linear-gradient(
+    100deg,
+    var(--brand) 0%,
+    color-mix(in oklch, var(--brand) 55%, var(--destructive)) 35%,
+    color-mix(in oklch, var(--brand) 60%, var(--success)) 70%,
+    var(--brand) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-pan 9s linear infinite;
+  padding-right: 0.08em; /* keeps the italic's last glyph from being clipped */
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 70% 70% at 50% 0%, #000 25%, transparent 75%);
+}
+
+.caret::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--brand);
+  animation: caret-blink 1s steps(1) infinite;
+}
+.animate-float { animation: float-y 4s ease-in-out infinite; }
+.animate-wave { animation: wave 1.1s ease-in-out infinite; }
+
+/* Chopper blinks now and then. */
+@theme {
+  --animate-blink: blink 5s ease-in-out infinite;
+
+  @keyframes blink {
+    0%, 92%, 100% { transform: scaleY(1); }
+    95% { transform: scaleY(0.1); }
   }
 }

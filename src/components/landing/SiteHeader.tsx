@@ -14,6 +14,9 @@ export function SiteHeader() {
           <Link href="#features" className="mr-2 hidden rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline-block">
             Features
           </Link>
+          <Link href="#how-it-works" className="mr-2 hidden rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground md:inline-block">
+            How it works
+          </Link>
           <ThemeToggle className="mr-1 hidden sm:inline-flex" />
           <Link href="/signin" className={buttonVariants({ variant: "ghost", size: "sm" })}>
             Log in

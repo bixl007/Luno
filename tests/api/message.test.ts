@@ -26,11 +26,21 @@ const doneOf = async (res: Response) => {
 };
 
 test("GET needs a session and a chat id", async () => {
+  const chat = await makeChat();
   signInAs(null);
-  assert.equal((await route.GET(request("GET", "/api/message?chatId=1"))).status, 401);
+  assert.equal((await route.GET(request("GET", `/api/message?chatId=${chat.id}`))).status, 401);
   signInAs("user_1");
   assert.equal((await route.GET(request("GET", "/api/message"))).status, 401);
-  assert.equal((await route.GET(request("GET", "/api/message?chatId=1"))).status, 200);
+  assert.equal((await route.GET(request("GET", `/api/message?chatId=${chat.id}`))).status, 200);
+});
+
+test("GET and POST refuse a chat that belongs to someone else", async () => {
+  const theirs = await db.prisma.chat.create({ data: { userId: "user_2", title: "Theirs" } });
+  await db.prisma.message.create({ data: { chatId: theirs.id, userId: "user_2", role: "user", content: "secret" } });
+
+  assert.equal((await route.GET(request("GET", `/api/message?chatId=${theirs.id}`))).status, 404);
+  assert.equal((await send(theirs.id, "hi")).status, 404);
+  assert.equal(db.messages.length, 1, "nothing is added to their chat");
 });
 
 test("GET returns a chat's messages oldest first", async () => {
@@ -120,4 +130,54 @@ test("the first model's overload is invisible to the user", async () => {
 
   assert.equal(data.assistant.content, "From the backup.");
   assert.equal(api.chatCalls().length, 2);
+});
+
+const png = { name: "cat.png", mimeType: "image/png", data: "AAAA" };
+const sendWith = (chatId: number, body: object) => route.POST(request("POST", "/api/message", { chatId, ...body }));
+
+test("POST sends attached files to the model and keeps only their names", async () => {
+  const api = stubGemini({ replies: [stream([{ text: "A cat." }])] });
+  const chat = await makeChat();
+
+  const { data } = await doneOf(await sendWith(chat.id, { content: "what is this?", attachments: [png] }));
+
+  assert.deepEqual(api.chatCalls()[0].body.contents[0].parts[0], { inlineData: { mimeType: "image/png", data: "AAAA" } });
+  assert.deepEqual(data.user.attachments, [{ name: "cat.png", mimeType: "image/png" }]);
+  assert.ok(!JSON.stringify(db.messages).includes("AAAA"), "the file itself is never stored");
+  assert.match(db.chats[0].context, /User: what is this\?\n\(Attached: cat\.png\)\nAI: A cat\./);
+});
+
+test("POST accepts files without any text", async () => {
+  stubGemini({ replies: [stream([{ text: "It is a cat." }])] });
+  const chat = await makeChat();
+
+  const res = await sendWith(chat.id, { content: "", attachments: [png] });
+
+  assert.equal(res.status, 200);
+  assert.equal((await doneOf(res)).data.assistant.content, "It is a cat.");
+});
+
+test("POST refuses bad attachments before anything is stored or sent", async () => {
+  const api = stubGemini();
+  const chat = await makeChat();
+
+  for (const attachments of ["x", [{ ...png, mimeType: "application/zip" }], [{ ...png, data: "***" }], Array(5).fill(png)]) {
+    const res = await sendWith(chat.id, { content: "hi", attachments });
+    assert.equal(res.status, 400);
+    assert.ok(typeof (await res.json()).error === "string");
+  }
+  assert.equal(db.messages.length, 0);
+  assert.equal(api.chatCalls().length, 0);
+});
+
+test("POST uses the saved preferences and the picked model", async () => {
+  const api = stubGemini({ replies: [stream([{ text: "Hi." }])] });
+  const chat = await makeChat();
+  await db.prisma.user.create({ data: { id: "user_1", email: "u@x", preferences: { nickname: "Bix", style: "concise" } } });
+  const picked = (await import("@/lib/ai/gemini")).GEMINI_MODELS.at(-1)!;
+
+  await doneOf(await sendWith(chat.id, { content: "hello", model: picked }));
+
+  assert.equal(api.chatCalls()[0].model, picked);
+  assert.match(api.chatCalls()[0].body.systemInstruction.parts[0].text, /Call the user "Bix"/);
 });
