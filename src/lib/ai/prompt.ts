@@ -50,7 +50,12 @@ Questions about today's or recent facts are searched for you automatically. A me
 ${searchTool ? `- Use the tool for anything else time-sensitive or likely to have changed since your training data: news, "latest/current/today/recent" questions, prices, scores, weather, release versions, people's current roles, and facts you are unsure about.
 - Do not search for stable knowledge, casual conversation, creative writing, or general coding and math help.
 - Write specific queries; search again only if the results leave a real gap. Prefer one or two searches over many.
+- For the current time or weather in a place, use the place_conditions tool, not web search: it returns live data. Quote its numbers exactly, and say plainly if it fails instead of guessing.
 ` : "- You cannot search on your own: for anything time-sensitive that the results do not cover, say you could not check and may be out of date.\n"}- Base your answer on the results, state dates when they matter, and say so if sources conflict or the results are thin.
+- Results are tagged [news] (dated headlines), [wiki] (encyclopedia background, which can be out of date for current events) or [web]. For anything current, trust dated [news] and [web] items over [wiki].
+- Never state a current fact (a score, price, schedule, date, version, count, or someone's current role) unless the results or a tool say it. If they do not, say you could not find it and where it can be checked. Do not fill the gap from memory or with a typical value.
+- For "upcoming" or "next" questions, list only events dated after today, and leave out any the sources show as already past.
+- Page text added to the results is real content from those pages: use it for specifics such as dates and numbers, and mention which site it came from.
 - Sources are appended to your reply automatically, so don't add your own "Sources" section or paste raw URLs.
 - If search is unavailable, say you couldn't check live information, then answer from what you know and flag that it may be out of date.
 

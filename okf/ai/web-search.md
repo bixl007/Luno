@@ -1,11 +1,11 @@
 ---
 type: Capability
 title: Web search
-description: Live search through DuckDuckGo's results page, then Bing's RSS feed, then Gemini's Google Search grounding (no search key needed), returning a summary and de-duplicated sources, or null on failure.
+description: Live search that asks DuckDuckGo, Bing, Google News and Wikipedia at once (no search key needed) and merges the results, with Gemini's Google Search grounding as the last fallback, returning a summary and de-duplicated sources, or null on failure.
 resource: ../../src/lib/ai/webSearch.ts
-tags: [search, duckduckgo, bing, grounding, gemini]
+tags: [search, duckduckgo, bing, google-news, wikipedia, grounding, gemini]
 status: stable
-generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-04T00:10:00Z }
+generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-04T02:00:00Z }
 sources:
   - id: gemini-pricing
     resource: https://ai.google.dev/gemini-api/docs/pricing
@@ -14,15 +14,26 @@ sources:
 
 # How it works
 
-`webSearch(query)` in `src/lib/ai/webSearch.ts` tries three sources in order and returns the first that gives results. None of the first two needs a key or an account:
+`webSearch(query)` in `src/lib/ai/webSearch.ts` asks four free sources **at the same time** (6 second timeout each, none needs a key), merges what they return, and only if all four come back empty falls back to Gemini's grounded search. Asking several at once is what keeps search working when a host blocks one of them: the production logs showed DuckDuckGo answering HTTP 4xx to every request from Vercel, while the others still answered.
 
-1. **DuckDuckGo** (`searchDuckDuckGo`): one `GET` of `html.duckduckgo.com/html/?q=...` (8 second timeout, no key), parsed with `cheerio` by `parseDuckDuckGo`. It takes up to six organic results (ads are skipped, duplicates dropped), turns DuckDuckGo's redirect links back into the real addresses, and builds a summary of `- title (host): snippet` lines. The chat model reads those as untrusted data and writes the answer. A page with no results (for example a bot check) counts as a failure.
-2. **Bing's RSS feed** (`searchBing`): one `GET` of `bing.com/search?format=rss&q=...` (8 second timeout), parsed by `parseBingRss`. Items carry a title, link, snippet and publish date, so result lines read `- title (host, 02 Nov 2026): snippet`. Bing sometimes ignores the query and returns unrelated popular pages (seen for queries containing "now": it returned speed-test pages for a weather question), so both DuckDuckGo and Bing results are filtered by `matchesQuery`: a result is kept only if its title or snippet shares a word with the query (ignoring filler such as "now", "today", "current"). A batch with nothing left counts as a failure and the next source is tried.
-3. **Gemini Google Search grounding** (`searchWithGemini`): one `generateContent` call with the `google_search` tool to the first model that answers in `GEMINI_SEARCH_MODEL`, `gemini-2.5-flash-lite`, `gemini-2.5-flash`. This is the fallback because free keys no longer get it, see below.
+| Source | Request | Gives |
+|--------|---------|-------|
+| DuckDuckGo (`ddgHits`) | `GET html.duckduckgo.com/html/?q=` parsed with `cheerio` (ads skipped, redirect links resolved) | `[web]` pages with snippets. Blocked from hosting addresses |
+| Bing (`bingHits`) | `GET bing.com/search?format=rss&q=` | `[web]` pages with snippets and a publish date |
+| Google News (`newsHits`) | `GET news.google.com/rss/search?q=` | `[news]` dated headlines (the title ends with the publisher) |
+| Wikipedia (`wikiHits`) | `GET en.wikipedia.org/w/api.php` with `generator=search` and the intro extract, identifying itself as Luno as Wikimedia asks | `[wiki]` background on the topic |
 
-It returns `summary` (reaches the chat model as a tool result or, for prompts caught by [auto search](/ai/auto-search.md), as a block appended to the user message, see [reply loop](/ai/reply-loop.md)) and `sources` (`{ title, url }` pairs, de-duplicated by URL). If both sources fail it logs the reason and returns `null`; the chat model is then told search is unavailable.
+Each source's hits are filtered by `matchesQuery` (kept only if the title or snippet shares a word with the query, ignoring filler such as "now" and "today", because Bing sometimes returns unrelated pages), cut to the best three, and interleaved round-robin (so no one source fills the list) into at most eight results, de-duplicated by URL. The summary the model reads tags every line `[web]`, `[news]` or `[wiki]` and says what the tags mean: news items are dated headlines, wiki items are encyclopedia background that can be out of date for current events. The user sees the same results as the source list.
 
-Measured on 2026-11-03 from the development machine: a DuckDuckGo search took about 0.8 seconds and returned six sources, and an answer that used it took 1.7 seconds in total.
+# Reading the top pages
+
+Snippets rarely hold specifics: asked for "the list of upcoming Indian cricket team matches", the model had only links to schedule pages and answered that it could not give dates. So after merging, `webSearch` opens the best two `[web]` results, one per site (`readPage`, 5 second timeout, at most 1.5 MB, HTML only, three redirects) and `excerptOf` keeps the lines most likely to answer the query: headings, paragraphs, list items and table rows (cells joined with ` | `), after dropping menus, scripts and footers. Lines are scored by words shared with the query, plus a point for a date or time and one for a table row, and the best are kept in page order up to 2,200 characters per page. The text is added to the summary under a line that marks it as untrusted data to use for dates and numbers. Results that are news redirects, Wikipedia, social or video sites, documents, or private network addresses (`canRead`) are never opened, so the search cannot be turned on the server's own network. A page that cannot be read (blocked, not HTML) is skipped and the results stay as they were.
+
+After this the same question produced a series-by-series list taken from the page text. Reading pages adds one to two fetches per search and roughly 600 tokens per page to every later turn, which matters on the fast providers' free input-token limits.
+
+Measured on 2026-11-03 from the development machine: four real queries returned 7 to 8 mixed results in 0.7 to 1.1 seconds.
+
+For the time and weather in a place, search is not used: the model has a separate [place_conditions tool](/ai/place-conditions.md).
 
 # Why Gemini grounding is only the fallback
 
@@ -30,7 +41,8 @@ Checked against a real free-tier key on 2026-11-03: `gemini-2.5-flash` and `gemi
 
 # Risks
 
-* Neither free page is an API, so each can change its markup, rate-limit, or block requests from shared hosting addresses, and no key can fix that. Everything here was tested from a home connection; whether the deployed site (Vercel) is blocked was not confirmed from Vercel's logs. If both fail there, the log shows `DuckDuckGo search failed` and `Bing search failed` lines. The only fully dependable options are a paid or keyed search API, or a paid Gemini key for grounding.
+* Quality, not availability, is the main risk: these are unranked snippets, so results can conflict (a query about a current role returned both an old and a new office-holder). The system prompt tells the model never to state a current fact that the results or a tool do not say, and to say so when it cannot find it.
+* Neither free page is an API, so each can change its markup, rate-limit, or block requests from shared hosting addresses, and no key can fix that. Everything here was tested from a home connection. Vercel's logs confirmed that DuckDuckGo is blocked there (`DuckDuckGo search failed: ERR_BAD_REQUEST`); Bing answered but with weak results; Google News and Wikipedia have not been seen from Vercel yet. A failing source logs `<name> search failed: <HTTP status>`. The only fully dependable options are a paid or keyed search API, or a paid Gemini key for grounding.
 * DuckDuckGo's HTML page is not an API. It can change its markup, rate-limit or show a bot challenge, which is more likely from shared datacentre addresses (such as a hosting platform) than from a home connection. An earlier check in this project saw a bot challenge (HTTP 202, no results) for scripted requests, while on 2026-11-03 a request from the development machine returned ten results. If search fails after deploying, a keyed provider such as Tavily (1,000 free credits a month according to its documentation, not tried here) is the dependable replacement, and the place to add it is `webSearch`.
 * Snippets carry no dates, so questions that need the exact latest number depend on what the model reads in the titles and snippets, and may be wrong or conflicting (the live test above showed the model flagging two different Node.js versions).
 

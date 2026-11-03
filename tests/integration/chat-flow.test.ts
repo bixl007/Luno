@@ -121,7 +121,7 @@ test("a time-sensitive question is searched, cited and still keeps history clean
   await signUp("user_a", "a@example.com");
   signInAs("user_a");
 
-  const first = await finish(await chats.POST(request("POST", "/api/chat", { firstMessage: "What's the weather today in Delhi?" })));
+  const first = await finish(await chats.POST(request("POST", "/api/chat", { firstMessage: "What's the news today in Delhi?" })));
   const reply = first.data.messages.find((m: any) => m.role === "assistant").content;
 
   assert.equal(api.searchCalls().length, 1);

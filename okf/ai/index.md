@@ -8,4 +8,5 @@
 * [Streaming](streaming.md) - How replies reach the browser as they are written.
 * [Chat titles](chat-title.md) - How a new chat gets a short generated title.
 * [System prompt](system-prompt.md) - The instructions Luno runs under.
+* [Place conditions](place-conditions.md) - The tool that gives the exact local time and live weather for a place.
 * [Web search](web-search.md) - How a search is executed and what comes back.

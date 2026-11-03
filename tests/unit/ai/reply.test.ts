@@ -176,7 +176,7 @@ test("the fallback message mentions the creator when the user asked about them",
 test("time-sensitive prompts are searched first and the results go to the model", async () => {
   const api = stubGemini({ replies: [stream([{ text: "It is sunny." }])] });
 
-  const { text, events } = await reply("what's the weather today in Delhi?");
+  const { text, events } = await reply("what's the news today in Delhi?");
 
   assert.equal(api.searchCalls().length, 1);
   assert.equal(api.chatCalls().length, 1);
@@ -504,4 +504,43 @@ test("a malformed tool call from a fast-provider model gets an error response, n
   assert.equal(text, "Fine.");
   assert.equal(api.searchCalls().length, 0);
   assert.match(api.compatCalls()[1].body.messages![3].content, /Invalid tool call/);
+});
+
+const METEO = {
+  geo: { results: [{ name: "Bengaluru", admin1: "Karnataka", country: "India", timezone: "Asia/Kolkata", latitude: 12.97, longitude: 77.59, population: 8_000_000 }] },
+  forecast: { current: { time: "2026-11-03T23:15", temperature_2m: 21.2, apparent_temperature: 24.2, relative_humidity_2m: 92, precipitation: 0, weather_code: 1, wind_speed_10m: 5.2 } },
+};
+const placeCall = (place: string) => ({ functionCall: { name: "place_conditions", args: { place } } });
+
+test("a Gemini reply can ask for a place's time and weather, and the live numbers go back to the model", async () => {
+  const api = stubGemini({ meteo: METEO, replies: [stream([placeCall("Bengaluru, India")]), stream([{ text: "21.2°C." }])] });
+
+  const { text } = await reply("what is the weather in bengaluru?");
+
+  assert.match(text, /^21\.2°C\./);
+  assert.match(text, /\[Open-Meteo weather and local time\]\(https:\/\/open-meteo\.com\/\)/, "the data source is credited");
+  const answer = api.chatCalls()[1].body.contents[2].parts[0].functionResponse;
+  assert.equal(answer.name, "place_conditions");
+  assert.equal(answer.response.weather, "mainly clear, 21.2°C (feels like 24.2°C), humidity 92%, wind 5.2 km/h");
+  assert.equal(api.searchCalls().length, 0, "no web search for a weather question");
+  assert.equal(api.bingCalls().length + api.ddgCalls().length, 0, "the raw question is not searched either");
+});
+
+test("a fast-provider model can call place_conditions too, and a failed lookup is reported, not guessed", async () => {
+  process.env.GROQ_API_KEY = "g";
+  const toolCall = (args: object) => ({
+    data: Readable.from([
+      `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: "c1", function: { name: "place_conditions", arguments: JSON.stringify(args) } }] } }] })}\n\n`,
+      "data: [DONE]\n\n",
+    ]),
+  });
+  const api = stubGemini({ compatReplies: [toolCall({ place: "Atlantis" }), compatStream("I couldn't look that up.")] });
+
+  const { text } = await reply("what time is it in atlantis?");
+
+  delete process.env.GROQ_API_KEY;
+  assert.match(text, /^I couldn't look that up\./);
+  assert.ok((api.compatCalls()[0].body.tools as any[]).some((t) => t.function.name === "place_conditions"));
+  assert.match(api.compatCalls()[1].body.messages![3].content, /Could not find that place/);
+  assert.ok(!text.includes("open-meteo"), "no credit when nothing was used");
 });
