@@ -5,16 +5,19 @@ description: Where each kind of file lives, what may import what, and where to p
 resource: ../../src
 tags: [structure, conventions, layout]
 status: stable
-generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T16:00:00Z }
+generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T14:40:00Z }
 ---
 
 ```
 src/
   app/                 Routes only: pages, layouts, api/*/route.ts
   components/
-    chat/              Chat.tsx, ChatMessage.tsx (the dashboard)
-    landing/           Landing page sections (+ demos/, unused for now)
-    ui/                Reusable visual building blocks
+    auth/              AuthShell.tsx (frame around Clerk's sign-in and sign-up)
+    brand/             Logo.tsx
+    chat/              Chat.tsx and its parts (the dashboard)
+    landing/           Landing page sections
+    theme/             ThemeProvider, ThemeToggle, Providers, Clerk appearance
+    ui/                Reusable visual building blocks (button, dialog, toasts)
   lib/
     ai/                Everything about Gemini: gemini, prompt, reply, title, webSearch, needsSearch
     db/                prisma.ts (client singleton)

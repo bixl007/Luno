@@ -1,21 +1,19 @@
-import { About } from "./About";
-import { Feats } from "./Feats";
-import { Main } from "./Main";
-import { Nav } from "./Nav";
-import { TracingBeam } from "@/components/ui/tracing-beam";
-import { Parall } from "./Parall";
+import { ClosingCta } from "./ClosingCta";
+import { Features } from "./Features";
+import { Hero } from "./Hero";
+import { SiteFooter } from "./SiteFooter";
+import { SiteHeader } from "./SiteHeader";
 
 export function Landing() {
   return (
-    
-    <div className="w-full sm:w-11/12 md:w-10/12 lg:w-9/12 mx-auto px-3 my-3 sm:px-0 lg:my-6">
-      <Nav />
-      <Main />
-      <TracingBeam>
-      <Parall />
-        <Feats />
-        <About />
-      </TracingBeam>
+    <div className="min-h-dvh bg-background">
+      <SiteHeader />
+      <main>
+        <Hero />
+        <Features />
+        <ClosingCta />
+      </main>
+      <SiteFooter />
     </div>
   );
 }

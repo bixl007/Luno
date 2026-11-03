@@ -1,12 +1,8 @@
-import React from "react";
+import type { Metadata } from "next";
 import Chat from "@/components/chat/Chat";
 
-const dashboard = () => {
-  return (
-    <div className="">
-      <Chat />
-    </div>
-  );
-};
+export const metadata: Metadata = { title: "Chat" };
 
-export default dashboard;
+export default function Dashboard() {
+  return <Chat />;
+}

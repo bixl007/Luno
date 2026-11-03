@@ -54,7 +54,7 @@ export function withoutSources(text: string): string {
 }
 
 function creatorBlurb(): string {
-  return `**About Luno's creator:** Luno was built by **Bishal Baira**, a web developer focused on clean code, scalable systems and seamless UI. Learn more at https://xyrix.xyz/.`;
+  return `**About Luno's creator:** Luno was built by **Bishal Baira**, a web developer focused on clean code, scalable systems and seamless UI. Learn more at https://xyrix.fun/.`;
 }
 
 function fallbackMessage(status: number | undefined, prompt: string): string {
@@ -67,7 +67,7 @@ function fallbackMessage(status: number | undefined, prompt: string): string {
   if (status === 503) {
     return `The AI models are temporarily overloaded. Please try again in a few moments.${extra}`;
   }
-  return `I ran into a technical problem answering that. Please try again shortly. If it keeps happening, visit https://xyrix.xyz/ to reach Luno's creator, Bishal Baira.${extra}`;
+  return `I ran into a technical problem answering that. Please try again shortly. If it keeps happening, visit https://xyrix.fun/ to reach Luno's creator, Bishal Baira.${extra}`;
 }
 
 const callOptions = (tools: boolean, thinking = true): CallOptions => ({

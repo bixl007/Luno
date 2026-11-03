@@ -1,6 +1,8 @@
 # Luno Update Log
 
 ## 2026-11-03
+* **Update**: Redesigned the whole interface with one [design system](/ui/design-system.md): light, dark and system themes, new landing page, themed sign-in and sign-up, a rebuilt [chat interface](/ui/chat-ui.md) (persistent sidebar, delete confirmation, loading and empty states, a context panel that lists real sources) and 404, error and loading screens. Removed the unused decorative components and demos, and the dead `tailwind.config.js`. The Context panel's placeholder Memory, Tone and Model controls are gone because they did nothing.
+* **Update**: The creator's website link is now https://xyrix.fun/ (system prompt and the two fallback replies).
 * **Update**: Cut reply latency from 17 s (36 s with search) to roughly 3 to 7 s when the newest model is slow, with [hedged requests and model health memory](/ai/failover.md). Measured live: `gemini-3.8-flash` answers `503` or hangs, `gemini-3.6-flash` takes 2 to 16 s, the lite models answer in about 1 s.
 * **Update**: Found the free tier allows about 20 requests a day per model (Google's `429` body). Daily-quota models are now skipped for an hour, `gemini-2.5-flash-lite` left the chat chain to protect search, and [limits and quotas](/operations/limits-and-quotas.md) was corrected.
 * **Update**: Fixed web search failing with `404` on `gemini-2.5-flash` ("no longer available to new users"). Search now runs on `gemini-2.5-flash-lite` and fails over across a model chain; chat and search both treat `404` as failover; the chat fallback chain drops `gemini-2.5-flash`. The idle timeout dropped from 25 to 15 seconds. See [web search](/ai/web-search.md) and [chat model](/ai/chat-model.md).
