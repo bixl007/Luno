@@ -1,7 +1,7 @@
 import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import axios from "axios";
-import { parseDuckDuckGo, webSearch } from "@/lib/ai/webSearch";
+import { parseBingRss, parseDuckDuckGo, webSearch } from "@/lib/ai/webSearch";
 import { resetModelHealth } from "@/lib/ai/modelHealth";
 import { failure, stubGemini } from "../../helpers/gemini";
 
@@ -134,10 +134,10 @@ test("a page with no results, such as a bot check, gives nothing", () => {
 test("DuckDuckGo answers first, and Gemini is not asked when it does", async () => {
   const api = stubGemini({ ddg: PAGE });
 
-  const result = await webSearch("node version");
+  const result = await webSearch("node direct link");
 
   assert.equal(result?.sources.length, 2);
-  assert.equal(api.ddgCalls()[0].query, "node version");
+  assert.equal(api.ddgCalls()[0].query, "node direct link");
   assert.equal(api.searchCalls().length, 0);
 });
 
@@ -155,4 +155,71 @@ test("when both fail the search returns null instead of throwing", async () => {
   mock.method(axios, "post", async () => { throw failure(404); });
 
   assert.equal(await webSearch("node version"), null);
+});
+
+const RSS = `<?xml version="1.0" encoding="utf-8" ?><rss version="2.0"><channel><title>Bing: q</title>
+  <item><title>India Cricket Schedule &amp; Fixtures</title><link>https://www.espncricinfo.com/team/india-6/fixtures</link><description>Upcoming   matches
+    and results.</description><pubDate>Mon, 02 Nov 2026 15:15:00 GMT</pubDate></item>
+  <item><title>Matches - BCCI</title><link>https://www.bcci.tv/matches</link><description>Official schedule.</description></item>
+  <item><title>Matches - BCCI</title><link>https://www.bcci.tv/matches</link><description>Same page again.</description></item>
+  <item><title>No address</title><link></link><description>x</description></item>
+</channel></rss>`;
+
+test("Bing RSS items become dated result lines and clean sources, without duplicates", () => {
+  const result = parseBingRss(RSS);
+
+  assert.deepEqual(result?.sources, [
+    { title: "India Cricket Schedule & Fixtures", url: "https://www.espncricinfo.com/team/india-6/fixtures" },
+    { title: "Matches - BCCI", url: "https://www.bcci.tv/matches" },
+  ]);
+  assert.match(result!.summary, /- India Cricket Schedule & Fixtures \(www\.espncricinfo\.com, 02 Nov 2026\): Upcoming matches and results\./);
+  assert.match(result!.summary, /- Matches - BCCI \(www\.bcci\.tv\): Official schedule\./);
+});
+
+test("a Bing feed with no items gives nothing", () => {
+  assert.equal(parseBingRss("<rss><channel></channel></rss>"), null);
+  assert.equal(parseBingRss("not xml at all"), null);
+});
+
+test("DuckDuckGo is asked first; Bing and Gemini are not asked when it answers", async () => {
+  const api = stubGemini({ ddg: PAGE, bing: RSS });
+
+  const result = await webSearch("node blog");
+
+  assert.equal(result?.sources[0].url, "https://nodejs.org/en/blog");
+  assert.equal(api.bingCalls().length, 0);
+  assert.equal(api.searchCalls().length, 0);
+});
+
+test("when DuckDuckGo gives nothing, Bing's RSS feed is used (as a feed request)", async () => {
+  const api = stubGemini({ ddg: "<html></html>", bing: RSS });
+
+  const result = await webSearch("india cricket schedule");
+
+  assert.equal(result?.sources.length, 2);
+  assert.equal(api.bingCalls()[0].query, "india cricket schedule");
+  assert.equal(api.bingCalls()[0].url, "https://www.bing.com/search");
+  assert.equal(api.searchCalls().length, 0);
+});
+
+test("results that share no word with the query are dropped, so a bad feed falls through to the next source", async () => {
+  const junk = `<rss><channel><item><title>Speed Test by MyBroadband</title><link>https://mybroadband.co.za/speed</link><description>Test your line.</description></item></channel></rss>`;
+
+  assert.equal(parseBingRss(junk, "Bengaluru weather right now"), null);
+  assert.equal(parseBingRss(junk)?.sources.length, 1, "without a query nothing is filtered");
+
+  const api = stubGemini({ ddg: "<html></html>", bing: junk });
+  const result = await webSearch("Bengaluru weather right now");
+
+  assert.equal(result?.summary, "Fresh facts.", "Gemini's grounded search answered instead");
+  assert.equal(api.searchCalls().length, 1);
+});
+
+test("when both free pages fail, Gemini's grounded search is still the last resort", async () => {
+  const api = stubGemini();
+
+  const result = await webSearch("node version");
+
+  assert.equal(result?.summary, "Fresh facts.");
+  assert.equal(api.ddgCalls().length + api.bingCalls().length, 2);
 });
