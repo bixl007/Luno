@@ -105,10 +105,10 @@ test("a searched reply keeps its source list in the message but not in the store
   stubGemini({ replies: [stream([{ text: "Rain expected." }])] });
   const chat = await makeChat();
 
-  const { data } = await doneOf(await send(chat.id, "weather today in Mumbai?"));
+  const { data } = await doneOf(await send(chat.id, "news today in Mumbai?"));
 
   assert.match(data.assistant.content, /Rain expected\.\n\n---\n\*\*Sources\*\*/);
-  assert.equal(db.chats[0].context, "\nUser: weather today in Mumbai?\nAI: Rain expected.");
+  assert.equal(db.chats[0].context, "\nUser: news today in Mumbai?\nAI: Rain expected.");
 });
 
 test("an outage never becomes an HTTP error: the user still gets a saved reply", async () => {

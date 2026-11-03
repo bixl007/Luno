@@ -77,7 +77,7 @@ export type Call = { kind: Kind; model: string; body: Body; signal?: AbortSignal
  * streaming calls are the chat model (answered from `replies` in order, an Error is thrown),
  * a non-streaming call to a 2.5 model is the search model, any other non-streaming call is the title model.
  */
-export function stubGemini(options: { replies?: unknown[]; compatReplies?: unknown[]; title?: string | Error; ddg?: string; bing?: string } = {}) {
+export function stubGemini(options: { replies?: unknown[]; compatReplies?: unknown[]; title?: string | Error; ddg?: string; bing?: string; news?: string; wiki?: unknown; pages?: Record<string, string>; meteo?: { geo: unknown; forecast: unknown } } = {}) {
   resetModelHealth(); // models that failed in an earlier test must not be skipped in this one
   const replies = [...(options.replies ?? [])];
   const compatReplies = [...(options.compatReplies ?? [])];
@@ -87,10 +87,30 @@ export function stubGemini(options: { replies?: unknown[]; compatReplies?: unkno
   // Bing, then DuckDuckGo, are searched before Gemini. By default both are offline, so a test falls through to the
   // stubbed Gemini search.
   const bingCalls: { url: string; query: string }[] = [];
+  const otherCalls: { url: string; query: string }[] = [];
+  const pageCalls: string[] = [];
   mock.method(axios, "get", async (url: string, config: { params?: { q?: string } } = {}) => {
+    // Open-Meteo (place_conditions): offline unless the test supplies both answers.
+    if (url.includes("open-meteo.com")) {
+      if (!options.meteo) throw Object.assign(new Error("offline"), { code: "ENOTFOUND" });
+      return { data: url.includes("geocoding") ? options.meteo.geo : options.meteo.forecast };
+    }
+    // News and Wikipedia take the query under other parameter names.
+    const params = (config.params ?? {}) as Record<string, string>;
+    const query = params.q ?? params.gsrsearch ?? "";
     const isBing = url.includes("bing.com");
-    (isBing ? bingCalls : ddgCalls).push({ url, query: config.params?.q ?? "" });
-    const page = isBing ? options.bing : options.ddg;
+    const isNews = url.includes("news.google.com/rss");
+    const isWiki = url.includes("wikipedia.org/w/api.php");
+    const isDdg = url.includes("duckduckgo.com");
+    if (!isBing && !isNews && !isWiki && !isDdg) {
+      // A result page being opened: offline unless the test supplies its HTML.
+      pageCalls.push(url);
+      const html = options.pages?.[url];
+      if (html === undefined) throw Object.assign(new Error("offline"), { code: "ENOTFOUND" });
+      return { data: html, headers: { "content-type": "text/html; charset=utf-8" } };
+    }
+    (isBing ? bingCalls : isNews || isWiki ? otherCalls : ddgCalls).push({ url, query });
+    const page = isBing ? options.bing : isNews ? options.news : isWiki ? options.wiki : options.ddg;
     if (page === undefined) throw Object.assign(new Error("offline"), { code: "ENOTFOUND" });
     return { data: page };
   });
@@ -119,7 +139,7 @@ export function stubGemini(options: { replies?: unknown[]; compatReplies?: unkno
   });
 
   const ofKind = (kind: Kind) => () => calls.filter((call) => call.kind === kind);
-  return { chatCalls: ofKind("chat"), searchCalls: ofKind("search"), titleCalls: ofKind("title"), compatCalls: ofKind("compat"), ddgCalls: () => ddgCalls, bingCalls: () => bingCalls };
+  return { chatCalls: ofKind("chat"), searchCalls: ofKind("search"), titleCalls: ofKind("title"), compatCalls: ofKind("compat"), ddgCalls: () => ddgCalls, bingCalls: () => bingCalls, newsAndWikiCalls: () => otherCalls, pageCalls: () => pageCalls };
 }
 
 export const restoreGemini = () => {

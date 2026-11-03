@@ -16,3 +16,8 @@ export function needsFreshData(prompt: string): boolean {
   const text = prompt.toLowerCase();
   return FRESH_DATA_PATTERNS.some((pattern) => pattern.test(text));
 }
+
+/** True for questions about the time or weather in a place, which the place_conditions tool answers from live data. */
+export function isPlaceNowQuestion(prompt: string): boolean {
+  return /\b(weather|temperature|forecast|humidity|what time|current time|time now|time in|local time|time is it)\b/i.test(prompt);
+}

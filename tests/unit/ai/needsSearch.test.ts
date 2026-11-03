@@ -27,3 +27,14 @@ test("does not search for stable knowledge, writing or code", () => {
     assert.equal(needsFreshData(prompt), false, prompt.slice(0, 40));
   }
 });
+
+test("time and weather questions are recognised as place questions, other fresh-data questions are not", async () => {
+  const { isPlaceNowQuestion } = await import("@/lib/ai/needsSearch");
+
+  for (const prompt of ["what is the current time and weather in bengaluru?", "weather in Paris", "what time is it in Tokyo", "temperature in delhi today"]) {
+    assert.equal(isPlaceNowQuestion(prompt), true, prompt);
+  }
+  for (const prompt of ["latest news about India", "who won the match", "write a poem about rain"]) {
+    assert.equal(isPlaceNowQuestion(prompt), false, prompt);
+  }
+});

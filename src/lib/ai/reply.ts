@@ -13,7 +13,8 @@ import { isVisionReadable, kindOf, type Attachment } from "@/lib/attachments";
 import type { Preferences } from "@/lib/preferences";
 import { streamCompat, userContent, type CompatMessage, type CompatProvider } from "./compat";
 import { fastFirstModel, pickModel } from "./models";
-import { needsFreshData } from "./needsSearch";
+import { placeConditions } from "./conditions";
+import { isPlaceNowQuestion, needsFreshData } from "./needsSearch";
 import {
   attachmentParts,
   buildSystemInstruction,
@@ -36,26 +37,38 @@ const MAX_SEARCHES_PER_ROUND = 2;
 const MAX_SOURCES = 6;
 const SOURCES_MARKER = "\n\n---\n**Sources**\n";
 
-const WEB_SEARCH_TOOL = {
-  functionDeclarations: [
-    {
-      name: "web_search",
-      description:
-        "Search the web for current or recent information: news, prices, scores, weather, software versions, releases, events, or any fact that may have changed after your training data. Returns a summary of what current sources say.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description:
-              "A specific, self-contained search query. Include the year or other qualifiers when recency matters.",
-          },
+const TOOL_DECLARATIONS = [
+  {
+    name: "web_search",
+    description:
+      "Search the web for current or recent information: news, prices, scores, software versions, releases, events, or any fact that may have changed after your training data. Returns a summary of what current sources say. Do not use it for the time or weather in a place: use place_conditions.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "A specific, self-contained search query. Include the year or other qualifiers when recency matters.",
         },
-        required: ["query"],
       },
+      required: ["query"],
     },
-  ],
-};
+  },
+  {
+    name: "place_conditions",
+    description:
+      "Get the exact current local time and the current weather (temperature, conditions, humidity, wind) for a city or town, from live data. Use it for any question about the time or weather in a place.",
+    parameters: {
+      type: "object",
+      properties: {
+        place: {
+          type: "string",
+          description: "A city or town, optionally followed by a country, for example \"Bengaluru, India\" or \"Paris\".",
+        },
+      },
+      required: ["place"],
+    },
+  },
+];
 
 type Emit = (event: StreamEvent) => void;
 
@@ -116,7 +129,7 @@ export async function generateGeminiResponse(
   const chain = picked?.provider === "gemini" ? [picked.id] : GEMINI_MODELS;
   const callOptions = (tools: boolean, thinking = true): CallOptions => ({
     system: buildSystemInstruction({ preferences }),
-    tools: tools ? [WEB_SEARCH_TOOL] : undefined,
+    tools: tools ? [{ functionDeclarations: TOOL_DECLARATIONS }] : undefined,
     thinking,
     // Reading images and PDFs takes a model longer before its first word, and each hedge would upload the files again.
     ...(attachments.length ? { timeoutMs: FILE_TIMEOUT_MS, hedgeMs: FILE_HEDGE_MS } : {}),
@@ -140,9 +153,32 @@ export async function generateGeminiResponse(
     return result;
   };
 
+  /**
+   * Runs one tool call and returns what the model is told. Every call needs a response, but only the first few run
+   * (the search quota is shared by all users).
+   */
+  async function runTool(name: string, args: Record<string, unknown> | undefined, index: number): Promise<object> {
+    const text = (key: string) => (typeof args?.[key] === "string" ? (args[key] as string).trim() : "");
+    const input = name === "web_search" ? text("query") : name === "place_conditions" ? text("place") : "";
+    if (!input) return { error: "Invalid tool call." };
+    if (index >= MAX_SEARCHES_PER_ROUND) return { error: "Too many tool calls at once. Use the results you already have." };
+
+    if (name === "place_conditions") {
+      const conditions = await placeConditions(input);
+      if (!conditions) return { error: "Could not find that place or its weather. Say so plainly, and do not guess the numbers." };
+      const credit = { title: "Open-Meteo weather and local time", url: "https://open-meteo.com/" };
+      if (!sources.some((s) => s.url === credit.url)) sources.push(credit);
+      return conditions;
+    }
+    const found = await search(input);
+    return found
+      ? { query: input, summary: found.summary, sources: found.sources.map((s) => s.title) }
+      : { error: "Web search is currently unavailable. Answer from your own knowledge and say it may be out of date." };
+  }
+
   /** The tool loop for the OpenAI-compatible providers: the model may call web_search, then answers from the results. */
   async function compatAnswer(provider: CompatProvider, model: string, content: unknown): Promise<string> {
-    const tool = { type: "function", function: WEB_SEARCH_TOOL.functionDeclarations[0] };
+    const tools = TOOL_DECLARATIONS.map((declaration) => ({ type: "function", function: declaration }));
     const messages: CompatMessage[] = [
       { role: "system", content: buildSystemInstruction({ preferences }) },
       { role: "user", content },
@@ -152,7 +188,7 @@ export async function generateGeminiResponse(
       // a tool and print the call as text unless they are told plainly.
       const last = round === COMPAT_TOOL_ROUNDS;
       if (last) messages.push({ role: "user", content: "Answer now using the search results above. Do not call any tools and do not search again." });
-      const result = await streamCompat(provider, model, messages, last ? undefined : [tool], onText);
+      const result = await streamCompat(provider, model, messages, last ? undefined : tools, onText);
       if (result.toolCalls.length === 0) return result.text;
 
       messages.push({
@@ -161,20 +197,14 @@ export async function generateGeminiResponse(
         tool_calls: result.toolCalls.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.arguments } })),
       });
       const answers = await Promise.all(
-        result.toolCalls.map(async (call, index) => {
-          let query = "";
+        result.toolCalls.map((call, index) => {
+          let args: Record<string, unknown> | undefined;
           try {
-            query = String(JSON.parse(call.arguments || "{}").query ?? "").trim();
+            args = JSON.parse(call.arguments || "{}");
           } catch {
-            // Malformed arguments get an error response below.
+            // Malformed arguments get an error response from runTool.
           }
-          // Every call needs a response, but only the first few actually search (the search quota is shared by all users).
-          if (call.name !== "web_search" || !query) return { error: "Invalid tool call." };
-          if (index >= MAX_SEARCHES_PER_ROUND) return { error: "Too many searches at once. Use the results you already have." };
-          const found = await search(query);
-          return found
-            ? { query, summary: found.summary, sources: found.sources.map((s) => s.title) }
-            : { error: "Web search is currently unavailable. Answer from your own knowledge and say it may be out of date." };
+          return runTool(call.name, args, index);
         })
       );
       result.toolCalls.forEach((call, i) => messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(answers[i]) }));
@@ -184,7 +214,8 @@ export async function generateGeminiResponse(
 
   async function answer(): Promise<string> {
     // Questions that are clearly about fresh facts are searched before the model sees them.
-    if (needsFreshData(prompt)) await search(prompt);
+    // Time and weather go to place_conditions instead: searching the raw question returns unrelated pages.
+    if (needsFreshData(prompt) && !isPlaceNowQuestion(prompt)) await search(prompt);
 
     if (first && first.provider !== "gemini") {
       // These providers cannot read PDFs or HEIC photos; anything else is answered by them, with the same search tool.
@@ -238,26 +269,7 @@ export async function generateGeminiResponse(
       const responses = await Promise.all(
         calls.map(async (part, index) => {
           const { name, args } = part.functionCall!;
-          const query = typeof args?.query === "string" ? args.query.trim() : "";
-          if (name !== "web_search" || !query) {
-            return { functionResponse: { name, response: { error: "Invalid tool call." } } };
-          }
-          // Every call needs a response, but only the first few actually search (the free search quota is shared by all users).
-          if (index >= MAX_SEARCHES_PER_ROUND) {
-            return { functionResponse: { name, response: { error: "Too many searches at once. Use the results you already have." } } };
-          }
-          const found = await search(query);
-          if (!found) {
-            return {
-              functionResponse: {
-                name,
-                response: { error: "Web search is currently unavailable. Answer from your own knowledge and say it may be out of date." },
-              },
-            };
-          }
-          return {
-            functionResponse: { name, response: { query, summary: found.summary, sources: found.sources.map((s) => s.title) } },
-          };
+          return { functionResponse: { name, response: await runTool(name, args, index) } };
         })
       );
       contents.push({ role: "user", parts: responses });

@@ -5,7 +5,7 @@ description: Time limits, Gemini quotas and in-code caps that bound how Luno ans
 resource: ../../src/lib/ai/reply.ts
 tags: [limits, quotas, gemini, performance]
 status: stable
-generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T22:30:00Z }
+generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-04T01:00:00Z }
 stale_after: 2027-01-03T00:00:00Z
 sources:
   - id: gemini-pricing
@@ -28,7 +28,7 @@ The repo requires Node 26 (`engines.node` is `>=26`, `.nvmrc`). Vercel's documen
 | Chat model idle timeout with files | 35 s without data, and a 10 s hedge delay (reading images and PDFs takes longer, and each hedge uploads the files again) | `FILE_TIMEOUT_MS`, `FILE_HEDGE_MS`, `src/lib/ai/reply.ts` |
 | Models tried per call | `GEMINI_MODEL` plus `GEMINI_FALLBACK_MODELS`, hedged after 2.5 s of silence | [failover](/ai/failover.md) |
 | Automatic search length cutoff | prompts over 500 characters are not auto-searched | `src/lib/ai/needsSearch.ts`, see [auto search](/ai/auto-search.md) |
-| Search call timeout | 8 s for DuckDuckGo, 20 s for the Gemini fallback | `DDG_TIMEOUT_MS`, `SEARCH_TIMEOUT_MS`, `src/lib/ai/webSearch.ts` |
+| Search call timeout | 6 s for each of the four free sources (asked in parallel), 20 s for the Gemini fallback | `FETCH_TIMEOUT_MS`, `SEARCH_TIMEOUT_MS`, `src/lib/ai/webSearch.ts` |
 | Tool rounds per reply | 2 (so at most 3 model calls) | `MAX_TOOL_ROUNDS`, `src/lib/ai/reply.ts` |
 | Searches per round | 2 | `MAX_SEARCHES_PER_ROUND`, `src/lib/ai/reply.ts` |
 | Sources shown | 6 | `MAX_SOURCES`, `src/lib/ai/reply.ts` |

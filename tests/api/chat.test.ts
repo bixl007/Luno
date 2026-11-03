@@ -98,11 +98,11 @@ test("the chat is saved with a usable title before the reply finishes", async ()
 test("a searched reply keeps its source list in the message but not in the stored context", async () => {
   stubGemini({ replies: [stream([{ text: "It is sunny." }])] });
 
-  const { chat } = await doneOf(await startChat("What's the weather today in Delhi?"));
+  const { chat } = await doneOf(await startChat("What's the news today in Delhi?"));
 
   const reply = chat.messages.find((m: any) => m.role === "assistant").content;
   assert.match(reply, /\*\*Sources\*\*/);
-  assert.equal(chat.context, "User: What's the weather today in Delhi?\nAI: It is sunny.");
+  assert.equal(chat.context, "User: What's the news today in Delhi?\nAI: It is sunny.");
 });
 
 test("when every model is down the user still gets a saved reply and a title", async () => {
