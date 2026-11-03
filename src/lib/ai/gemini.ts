@@ -16,7 +16,7 @@ const THINKING_LEVEL = process.env.GEMINI_THINKING_LEVEL || "low";
 // Silence for this long means the model is hung (seen on gemini-3.8-flash).
 const GEMINI_TIMEOUT_MS = 15000;
 // A model with no first word after this long gets company: the next model starts alongside it, and the first to answer wins.
-const HEDGE_MS = Number(process.env.GEMINI_HEDGE_MS ?? 4000);
+const HEDGE_MS = Number(process.env.GEMINI_HEDGE_MS ?? 2500);
 // 404 means the model was retired or is not offered to this key, so another model may still work.
 const FAILOVER_STATUSES = new Set([404, 429, 500, 502, 503, 504]);
 const FAILOVER_CODES = new Set(["ECONNABORTED", "ETIMEDOUT", "ECONNRESET"]);
@@ -28,7 +28,15 @@ export type Part = {
   [key: string]: unknown;
 };
 export type Content = { role: string; parts: Part[] };
-export type CallOptions = { system: string; tools?: unknown[]; thinking: boolean };
+export type CallOptions = {
+  system: string;
+  tools?: unknown[];
+  thinking: boolean;
+  /** Silence allowed before a model counts as hung. Replies about files need longer: reading them takes the model time. */
+  timeoutMs?: number;
+  /** How long a silent model is waited for before the next one starts alongside it. */
+  hedgeMs?: number;
+};
 
 export const geminiEndpoint = (model: string, stream = false) =>
   stream
@@ -76,7 +84,7 @@ export const textOf = (parts: Part[]): string =>
     .trim();
 
 /** Pulls the `data:` payload out of each complete server-sent event in `buffer`; returns what is left over. */
-function takeEvents(buffer: string, onData: (json: string) => void): string {
+export function takeEvents(buffer: string, onData: (json: string) => void): string {
   const boundary = /\r?\n\r?\n/;
   for (let match = boundary.exec(buffer); match; match = boundary.exec(buffer)) {
     const block = buffer.slice(0, match.index);
@@ -110,7 +118,7 @@ async function streamCall(model: string, contents: Content[], options: CallOptio
       ...(options.tools ? { tools: options.tools } : {}),
       ...(generationConfig ? { generationConfig } : {}),
     },
-    { responseType: "stream", timeout: GEMINI_TIMEOUT_MS, signal: hooks.signal }
+    { responseType: "stream", timeout: options.timeoutMs ?? GEMINI_TIMEOUT_MS, signal: hooks.signal }
   );
 
   const parts: Part[] = [];
@@ -203,7 +211,7 @@ export function streamWithFailover(
       hedgeTimer = setTimeout(() => {
         for (const other of attempts) if (!other.done) other.silent = true;
         launch();
-      }, HEDGE_MS);
+      }, options.hedgeMs ?? HEDGE_MS);
 
       streamCall(attempt.model, contents, options, {
         signal: attempt.controller.signal,

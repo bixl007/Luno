@@ -15,7 +15,7 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 # Areas
 
 * [AI](ai/) - Gemini chat model, system prompt, tool-calling loop and web search.
-* [API](api/) - The three HTTP endpoints.
+* [API](api/) - The HTTP endpoints.
 * [Data](data/) - Prisma models and how chat history is stored.
 * [UI](ui/) - Dashboard chat interface and landing page.
 * [Operations](operations/) - Environment variables, local development, limits and quotas.

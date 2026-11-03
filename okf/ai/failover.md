@@ -5,7 +5,7 @@ description: How a reply gets a model that works and is fast, when the newest fr
 resource: ../../src/lib/ai/gemini.ts
 tags: [gemini, failover, latency, quota]
 status: stable
-generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T21:00:00Z }
+generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T15:10:00Z }
 ---
 
 The newest free model, `gemini-3.8-flash`, was measured on 2026-11-03 answering `503 UNAVAILABLE` or hanging until the timeout on every request, and `gemini-3.6-flash` took 2 to 16 seconds to start. Simple sequential failover made every reply wait 15 seconds for the broken model first (17 s for a plain reply, 36 s with search). Three mechanisms fix that. All live in `src/lib/ai/gemini.ts` and `src/lib/ai/modelHealth.ts`.
@@ -16,7 +16,7 @@ A call moves to the next model on `404` (retired, or not offered to this key), `
 
 # 2. Hedging
 
-`streamWithFailover` does not wait for a silent model to fail. If a model has produced no output after `GEMINI_HEDGE_MS` (4 seconds), the next model starts **alongside** it. The first one to send output wins and every other request is cancelled. A model that answers in time is never hedged, so a healthy primary costs one request.
+`streamWithFailover` does not wait for a silent model to fail. If a model has produced no output after `GEMINI_HEDGE_MS` (2.5 seconds), the next model starts **alongside** it. The first one to send output wins and every other request is cancelled. A model that answers in time is never hedged, so a healthy primary costs one request.
 
 Once the winner has started answering, an error is final. Text may already be on screen, so nothing else is tried and the partial text is kept with an "interrupted" note ([reply loop](/ai/reply-loop.md)).
 

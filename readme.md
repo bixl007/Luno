@@ -102,6 +102,10 @@ GEMINI_THINKING_LEVEL="low"
 GEMINI_TITLE_MODEL="gemini-3.1-flash-lite"
 GEMINI_SEARCH_MODEL="gemini-2.5-flash-lite"
 
+# Optional: free Groq key that adds the Llama 4 Scout vision model to the model picker
+GROQ_API_KEY=""
+OPENROUTER_API_KEY=""
+
 # Clerk (Frontend + Backend)
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_xxxxxxxxx"
 CLERK_SECRET_KEY="sk_test_xxxxxxxxx"
@@ -137,11 +141,26 @@ Then copy the webhook signing secret to CLERK_WEBHOOK_SECRET.
 Create API key from Google AI Studio and place it in BOT_API.
 Chat model defaults to gemini-3.8-flash (free tier) and can be changed via GEMINI_MODEL.
 
-If the chat model is overloaded (503), out of quota (429), retired (404) or just slow, Luno tries the models in GEMINI_FALLBACK_MODELS: a model that stays silent for GEMINI_HEDGE_MS (4 s) gets company from the next one, the first to answer wins, and models that failed or were slow are tried last for a few minutes.
+If the chat model is overloaded (503), out of quota (429), retired (404) or just slow, Luno tries the models in GEMINI_FALLBACK_MODELS: a model that stays silent for GEMINI_HEDGE_MS (2.5 s) gets company from the next one, the first to answer wins, and models that failed or were slow are tried last for a few minutes.
 
 Free-tier note: Google's free tier allows only about 20 requests per day per model. Each reply uses at least one request, plus one per web search, one per new chat title, and one per hedge. Enable billing on your Google AI project to remove the limit.
 
 Web search: questions that are clearly about today's or recent facts (today, latest, weather, news, prices, scores, recent years) are searched automatically before the model answers, and the model can also call a `web_search` tool itself. Searches run through Google Search grounding on GEMINI_SEARCH_MODEL (gemini-2.5-flash-lite, free up to 500 requests/day; gemini-2.5-flash is no longer served to new API keys and newer models need a paid plan for grounding).
+
+### Free vision models (optional)
+
+The model picker can also offer free vision models. Each provider appears only when its key is set in `.env`:
+
+| Provider | Key from | Variables | Default model |
+|----------|----------|-----------|---------------|
+| Groq | https://console.groq.com/keys | `GROQ_API_KEY`, `GROQ_MODELS` | `qwen/qwen3.8-27b` |
+| OpenRouter | https://openrouter.ai/keys | `OPENROUTER_API_KEY`, `OPENROUTER_MODELS` | `openrouter/free` |
+
+`*_MODELS` is a comma-separated list, so one key can offer several models, but every id must accept images, and model ids change often: check the provider's list. When a Groq or OpenRouter key is set, **Auto** tries that model first (it answers in well under a second, where the free Gemini models can take 3 to 40 s) and falls back to Gemini; set `AUTO_PREFER_GEMINI=1` to reverse that. PDFs and HEIC photos are sent to Gemini instead, because these providers can't read them here. Free limits differ per provider and were not confirmed against their own pages: check your console. Restart the dev server after changing `.env`.
+
+### Files, models and personalisation
+
+Attach up to four images, PDFs or text files (3 MB in total) with the paperclip, by dragging them in, or by pasting an image. Pick a model next to the send button. **Personalise** in the sidebar sets a nickname, response style, custom instructions, accent colour, the read-aloud voice, and whether Chopper, the reindeer on the message box, shows. Run `npx prisma migrate deploy` (or `migrate dev`) once to add the two new columns.
 
 ## Running The Project
 

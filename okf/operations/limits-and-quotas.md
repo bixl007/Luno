@@ -5,7 +5,7 @@ description: Time limits, Gemini quotas and in-code caps that bound how Luno ans
 resource: ../../src/lib/ai/reply.ts
 tags: [limits, quotas, gemini, performance]
 status: stable
-generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T21:00:00Z }
+generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T22:30:00Z }
 stale_after: 2027-01-03T00:00:00Z
 sources:
   - id: gemini-pricing
@@ -25,12 +25,15 @@ The repo requires Node 26 (`engines.node` is `>=26`, `.nvmrc`). Vercel's documen
 |-------|-------|-------|
 | Route time limit | 60 s (`maxDuration`) | `src/app/api/chat/route.ts`, `src/app/api/message/route.ts` |
 | Chat model idle timeout | 15 s without data (a streaming reply can run longer in total) | `GEMINI_TIMEOUT_MS`, `src/lib/ai/gemini.ts` |
-| Models tried per call | `GEMINI_MODEL` plus `GEMINI_FALLBACK_MODELS`, hedged after 4 s of silence | [failover](/ai/failover.md) |
+| Chat model idle timeout with files | 35 s without data, and a 10 s hedge delay (reading images and PDFs takes longer, and each hedge uploads the files again) | `FILE_TIMEOUT_MS`, `FILE_HEDGE_MS`, `src/lib/ai/reply.ts` |
+| Models tried per call | `GEMINI_MODEL` plus `GEMINI_FALLBACK_MODELS`, hedged after 2.5 s of silence | [failover](/ai/failover.md) |
 | Automatic search length cutoff | prompts over 500 characters are not auto-searched | `src/lib/ai/needsSearch.ts`, see [auto search](/ai/auto-search.md) |
-| Search call timeout | 20 s | `SEARCH_TIMEOUT_MS`, `src/lib/ai/webSearch.ts` |
+| Search call timeout | 8 s for DuckDuckGo, 20 s for the Gemini fallback | `DDG_TIMEOUT_MS`, `SEARCH_TIMEOUT_MS`, `src/lib/ai/webSearch.ts` |
 | Tool rounds per reply | 2 (so at most 3 model calls) | `MAX_TOOL_ROUNDS`, `src/lib/ai/reply.ts` |
 | Searches per round | 2 | `MAX_SEARCHES_PER_ROUND`, `src/lib/ai/reply.ts` |
 | Sources shown | 6 | `MAX_SOURCES`, `src/lib/ai/reply.ts` |
+| Files per message | 4 files, 3 MB in total before base64; images over 400 KB are shrunk to 1600 px in the browser | `src/lib/attachments.ts`, `src/components/chat/files.ts` |
+| Text file length | 60,000 characters per file, the rest is cut | `src/lib/ai/prompt.ts` |
 | History sent to the model | last 12,000 characters | `MAX_CONTEXT_CHARS`, `src/lib/ai/prompt.ts`, see [chat context](/data/chat-context.md) |
 
 The worst case (3 model calls plus 2 searches, each running to its timeout, with failover on top) can still exceed 60 s; typical replies are far shorter. Streaming makes long replies feel faster but does not extend the limit. See [reply loop](/ai/reply-loop.md).

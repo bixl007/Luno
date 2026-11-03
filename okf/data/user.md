@@ -5,7 +5,7 @@ description: "A person (Clerk user id as primary key) or the synthetic assistant
 resource: ../../prisma/schema.prisma
 tags: [data, prisma, auth]
 status: stable
-generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T13:06:00Z }
+generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T15:10:00Z }
 ---
 
 # Schema
@@ -15,6 +15,7 @@ generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T13:06:00Z }
 | `id` | String, primary key | The Clerk user id, no generated default |
 | `username` | String?, unique | |
 | `email` | String, unique | Placeholder `<id>@noemail.local` if created before the webhook |
+| `preferences` | Json? | Profile and personalisation settings (nickname, occupation, bio, style, instructions, accent colour, Chopper on or off). Validated by `src/lib/preferences.ts`; invalid stored values fall back to the defaults. See [/api/preferences](/api/preferences.md) |
 | `chats` | [Chat](/data/chat.md)[] | |
 | `messages` | [Message](/data/message.md)[] | |
 | `createdAt` | DateTime | Default now |

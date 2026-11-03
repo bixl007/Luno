@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeftClose, Plus, Trash2, X } from "lucide-react";
+import { ChevronRight, PanelLeftClose, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { cn } from "@/lib/utils";
@@ -19,9 +19,10 @@ type SidebarProps = {
   onDelete: (chat: Chat) => void;
   onClose: () => void;
   onCollapse: () => void;
+  onOpenSettings: () => void;
 };
 
-export function Sidebar({ chats, loading, selectedId, open, collapsed, onNewChat, onSelect, onDelete, onClose, onCollapse }: SidebarProps) {
+export function Sidebar({ chats, loading, selectedId, open, collapsed, onNewChat, onSelect, onDelete, onClose, onCollapse, onOpenSettings }: SidebarProps) {
   return (
     <>
       {open && <div className="fixed inset-0 z-30 bg-foreground/30 backdrop-blur-[2px] animate-fade-in md:hidden" onClick={onClose} aria-hidden />}
@@ -110,9 +111,25 @@ export function Sidebar({ chats, loading, selectedId, open, collapsed, onNewChat
             )}
           </nav>
 
-          <div className="flex items-center justify-between border-t border-sidebar-border px-4 py-3 sm:hidden">
-            <span className="text-xs text-subtle-foreground">Theme</span>
-            <ThemeToggle />
+          <div className="space-y-2 border-t border-sidebar-border p-3">
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="group flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand transition-transform group-hover:scale-105">
+                <SlidersHorizontal className="size-4" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-foreground">Personalise</span>
+                <span className="block truncate text-xs text-subtle-foreground">Style, voice and Chopper</span>
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-subtle-foreground transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </button>
+            <div className="flex items-center justify-between px-2 sm:hidden">
+              <span className="text-xs text-subtle-foreground">Theme</span>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </aside>

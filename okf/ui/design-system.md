@@ -5,14 +5,14 @@ description: Warm paper neutrals, one indigo accent, serif display type, and sem
 resource: ../../src/app/globals.css
 tags: [ui, design-system, theme, tokens]
 status: stable
-generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T14:40:00Z }
+generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T14:58:00Z }
 ---
 
 Every screen uses the same tokens, defined once in `src/app/globals.css`. Components use semantic Tailwind names (`bg-card`, `text-muted-foreground`, `border-border`, `text-brand`) and never raw colors, so both themes stay in step.
 
 # Direction
 
-Warm, editorial surfaces (a Claude-like warmth), a plain chat layout (ChatGPT-like simplicity), hairline borders and tight spacing (Linear-like precision), and one quiet indigo accent (`brand`) plus a crescent logo as Luno's own marks. No gradients on controls or text.
+Warm, editorial surfaces (a Claude-like warmth), a plain chat layout (ChatGPT-like simplicity), hairline borders and tight spacing (Linear-like precision), and one quiet indigo accent (`brand`) plus a crescent logo as Luno's own marks. No gradients on controls. The landing page alone uses soft token-coloured gradients (aurora backgrounds, one gradient accent phrase per heading).
 
 # Tokens
 

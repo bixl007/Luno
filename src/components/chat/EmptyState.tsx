@@ -1,6 +1,6 @@
 "use client";
 
-import { Composer } from "./Composer";
+import { Composer, type ComposerExtras } from "./Composer";
 
 const PROMPTS = [
   "Get fresh perspective on tricky problems",
@@ -15,6 +15,7 @@ type EmptyStateProps = {
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   disabled: boolean;
+  extras: ComposerExtras;
 };
 
 function greeting() {
@@ -25,7 +26,7 @@ function greeting() {
   return "Good evening";
 }
 
-export function EmptyState({ name, input, onInputChange, onSubmit, disabled }: EmptyStateProps) {
+export function EmptyState({ name, input, onInputChange, onSubmit, disabled, extras }: EmptyStateProps) {
   return (
     <div className="mx-auto flex h-full w-full max-w-2xl flex-col justify-center px-4 pb-16">
       <h1 className="font-display animate-fade-up text-center text-4xl leading-tight text-foreground sm:text-5xl" suppressHydrationWarning>
@@ -42,6 +43,7 @@ export function EmptyState({ name, input, onInputChange, onSubmit, disabled }: E
           onChange={onInputChange}
           onSubmit={onSubmit}
           disabled={disabled}
+          extras={extras}
           placeholder="Ask anything. Luno searches the web when it needs to."
           autoFocus
         />

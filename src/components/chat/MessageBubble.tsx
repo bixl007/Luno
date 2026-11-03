@@ -1,6 +1,8 @@
 "use client";
 
-import { Copy, Download, Square, Volume2 } from "lucide-react";
+import { Copy, Download, FileText, ImageIcon, Square, Volume2 } from "lucide-react";
+import { memo } from "react";
+import { kindOf } from "@/lib/attachments";
 import { LogoMark } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
 import ChatMessage from "./ChatMessage";
@@ -33,15 +35,29 @@ function ActionButton({ label, onClick, active, children }: { label: string; onC
   );
 }
 
-export function MessageBubble({ message, index, isListening, onCopy, onCopyCode, onSpeak, onExport }: MessageBubbleProps) {
+function MessageBubbleView({ message, index, isListening, onCopy, onCopyCode, onSpeak, onExport }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const content = message.content || message.text || "";
 
   if (isUser) {
     return (
       <div className="flex justify-end animate-fade-in">
-        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-secondary px-4 py-2.5 text-[15px] leading-7 text-foreground">
-          {content}
+        <div className="flex max-w-[85%] flex-col items-end gap-1.5">
+          {message.attachments && message.attachments.length > 0 && (
+            <ul className="flex flex-wrap justify-end gap-1.5" aria-label="Attached files">
+              {message.attachments.map((file, i) => (
+                <li key={i} className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-xs text-muted-foreground">
+                  {kindOf(file.mimeType) === "image" ? <ImageIcon className="size-3.5" aria-hidden /> : <FileText className="size-3.5" aria-hidden />}
+                  <span className="max-w-48 truncate">{file.name}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {content && (
+            <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-secondary px-4 py-2.5 text-[15px] leading-7 text-foreground">
+              {content}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -64,7 +80,9 @@ export function MessageBubble({ message, index, isListening, onCopy, onCopyCode,
           </div>
         ) : (
           <>
-            <ChatMessage message={content} onCopyCode={onCopyCode} />
+            <div data-message-index={index}>
+              <ChatMessage message={content} onCopyCode={onCopyCode} />
+            </div>
             {content && (
               <div className="mt-2 -ml-1.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
                 <ActionButton label="Copy message" onClick={() => onCopy(content)}>
@@ -84,3 +102,13 @@ export function MessageBubble({ message, index, isListening, onCopy, onCopyCode,
     </div>
   );
 }
+
+/**
+ * While a reply streams only the last message changes, so the others are not re-rendered (each one re-parses its
+ * markdown and re-highlights its code). The handlers are left out of the comparison on purpose: they only read state
+ * that the compared props already cover.
+ */
+export const MessageBubble = memo(
+  MessageBubbleView,
+  (a, b) => a.message === b.message && a.index === b.index && a.isListening === b.isListening,
+);
