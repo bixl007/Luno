@@ -1,9 +1,9 @@
 "use client";
 
 import { SignIn, useAuth } from "@clerk/nextjs";
-import { shadesOfPurple } from "@clerk/themes";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 export default function Signin() {
   const { isSignedIn } = useAuth();
@@ -16,17 +16,8 @@ export default function Signin() {
   }, [isSignedIn, router]);
 
   return (
-    <div
-      className="h-screen flex justify-center items-center bg-gradient-to-r from-[#210649] to-[#090014]"
-      style={{
-        marginLeft: "0",
-      }}
-    >
-      <SignIn
-        appearance={{ baseTheme: shadesOfPurple }}
-        afterSignInUrl="/dashboard"
-        afterSignUpUrl="/dashboard"
-      />
-    </div>
+    <AuthShell heading="Welcome back." subheading="Pick up your conversations where you left them.">
+      <SignIn afterSignInUrl="/dashboard" afterSignUpUrl="/dashboard" />
+    </AuthShell>
   );
 }

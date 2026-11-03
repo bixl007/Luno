@@ -5,7 +5,7 @@ description: "Full-stack AI chat app: Next.js, Clerk auth, Prisma/PostgreSQL and
 resource: https://github.com/bixl007/Luno
 tags: [overview, nextjs, gemini, chatbot]
 status: stable
-generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T16:00:00Z }
+generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-03T14:40:00Z }
 ---
 
 # What it is
@@ -27,7 +27,7 @@ Luno is a signed-in chat assistant. Users create chats, send messages and get Ma
 | Path | Holds |
 |------|-------|
 | `src/app/` | Routes only: pages and the three endpoints, see [API](/api/index.md) |
-| `src/components/chat/`, `src/components/landing/`, `src/components/ui/` | Dashboard chat UI, landing page and reusable pieces, see [UI](/ui/index.md) |
+| `src/components/{chat,landing,auth,theme,brand,ui}/` | Dashboard chat UI, landing page, auth frame, theming and reusable pieces, see [UI](/ui/index.md) |
 | `src/lib/ai/` | Everything about Gemini: transport and failover (`gemini.ts`), prompt (`prompt.ts`), reply loop (`reply.ts`), [titles](/ai/chat-title.md) (`title.ts`), [web search](/ai/web-search.md), [auto search](/ai/auto-search.md) |
 | `src/lib/http/ndjson.ts` | The [streaming](/ai/streaming.md) wire format, server and client |
 | `src/lib/db/prisma.ts` | Prisma client singleton (generated client lives in `src/generated/prisma`, git-ignored) |

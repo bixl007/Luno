@@ -1,9 +1,9 @@
 "use client";
 
 import { SignUp, useAuth } from "@clerk/nextjs";
-import { shadesOfPurple } from "@clerk/themes";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 export default function Signup() {
   const { isSignedIn } = useAuth();
@@ -20,17 +20,8 @@ export default function Signup() {
   }, [isSignedIn, router]);
 
   return (
-    <div
-      className="h-screen flex justify-center items-center bg-gradient-to-r from-[#210649] to-[#090014]"
-      style={{
-        marginLeft: "0",
-      }}
-    >
-      <SignUp
-        appearance={{ baseTheme: shadesOfPurple }}
-        afterSignUpUrl="/dashboard"
-        afterSignInUrl="/dashboard"
-      />
-    </div>
+    <AuthShell heading="Ask better questions, get current answers." subheading="Create an account to start your first conversation.">
+      <SignUp afterSignUpUrl="/dashboard" afterSignInUrl="/dashboard" />
+    </AuthShell>
   );
 }

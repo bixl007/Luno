@@ -7,13 +7,13 @@ It provides:
 - Persistent chat history per user
 - Streaming AI responses via Gemini, with automatic live web search for questions about today's or recent facts
 - Automatic failover to other free Gemini models when the main one is overloaded
-- A premium dark chat dashboard UI
+- A calm, minimal chat UI with light, dark and system themes
 - Clerk webhook sync to keep user records in your database
 
 ## Tech Stack
 
 - Framework: Next.js 15 (App Router) + React 19 + TypeScript
-- Styling: Tailwind CSS
+- Styling: Tailwind CSS 4 with design tokens in src/app/globals.css
 - Auth: Clerk
 - Database: PostgreSQL + Prisma
 - AI: Google Gemini API
@@ -21,7 +21,7 @@ It provides:
 ## Project Structure
 
 - src/app: routes only (App Router pages and API routes)
-- src/components: chat/ (dashboard UI), landing/ (home page), ui/ (reusable pieces)
+- src/components: chat/ (dashboard UI), landing/ (home page), auth/, theme/, brand/ and ui/ (shared pieces)
 - src/lib: ai/ (Gemini transport, prompt, reply loop, titles, web search), db/ (Prisma client), http/ (streaming format)
 - tests: unit/, api/, integration/ and live/ tests, plus shared helpers
 - prisma: Prisma schema and migrations
