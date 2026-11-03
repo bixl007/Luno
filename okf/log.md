@@ -1,6 +1,7 @@
 # Luno Update Log
 
 ## 2026-11-03
+* **Update**: Web search failed on the deployed site (luno.xyrix.fun) with "I couldn't check live information", most likely because DuckDuckGo's page is blocked from hosting addresses. Added Bing's RSS feed as a second keyless source (with a relevance filter, because Bing sometimes returns unrelated pages), so search is DuckDuckGo, then Bing, then Gemini grounding. No search key is needed. Not confirmed on the deployed site, see [web search](/ai/web-search.md).
 * **Update**: Fixed the screen flickering while a reply streams: text updates are batched to every 80 ms, earlier messages no longer re-render, and the auto-scroll is instant while streaming and only follows the reader if they are at the bottom (a smooth scroll restarted on every word). See [chat interface](/ui/chat-ui.md).
 * **Update**: PDF export now prints the rendered message through the browser's print dialog ("Save as PDF") instead of drawing plain text with `jspdf`, which broke on tables, code, long lines and non-Latin text. Checked by printing a sample with headings, a table, code, Hindi, Japanese and emoji to a real PDF in headless Chrome. `jspdf` is no longer imported anywhere.
 * **Update**: Fixed web search failing. Free Gemini keys no longer get Google Search grounding (the 2.5 models answer `404`, the 3.x models `429`), so search now asks DuckDuckGo's results page first and keeps Gemini grounding as the fallback, see [web search](/ai/web-search.md).

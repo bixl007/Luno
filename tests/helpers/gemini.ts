@@ -77,18 +77,22 @@ export type Call = { kind: Kind; model: string; body: Body; signal?: AbortSignal
  * streaming calls are the chat model (answered from `replies` in order, an Error is thrown),
  * a non-streaming call to a 2.5 model is the search model, any other non-streaming call is the title model.
  */
-export function stubGemini(options: { replies?: unknown[]; compatReplies?: unknown[]; title?: string | Error; ddg?: string } = {}) {
+export function stubGemini(options: { replies?: unknown[]; compatReplies?: unknown[]; title?: string | Error; ddg?: string; bing?: string } = {}) {
   resetModelHealth(); // models that failed in an earlier test must not be skipped in this one
   const replies = [...(options.replies ?? [])];
   const compatReplies = [...(options.compatReplies ?? [])];
   const calls: Call[] = [];
   const ddgCalls: { url: string; query: string }[] = [];
 
-  // DuckDuckGo is searched first. By default it is offline, so a test falls through to the stubbed Gemini search.
+  // Bing, then DuckDuckGo, are searched before Gemini. By default both are offline, so a test falls through to the
+  // stubbed Gemini search.
+  const bingCalls: { url: string; query: string }[] = [];
   mock.method(axios, "get", async (url: string, config: { params?: { q?: string } } = {}) => {
-    ddgCalls.push({ url, query: config.params?.q ?? "" });
-    if (options.ddg === undefined) throw Object.assign(new Error("offline"), { code: "ENOTFOUND" });
-    return { data: options.ddg };
+    const isBing = url.includes("bing.com");
+    (isBing ? bingCalls : ddgCalls).push({ url, query: config.params?.q ?? "" });
+    const page = isBing ? options.bing : options.ddg;
+    if (page === undefined) throw Object.assign(new Error("offline"), { code: "ENOTFOUND" });
+    return { data: page };
   });
 
   mock.method(axios, "post", async (url: string, body: Body, config: { signal?: AbortSignal; headers?: Record<string, string>; timeout?: number } = {}) => {
@@ -115,7 +119,7 @@ export function stubGemini(options: { replies?: unknown[]; compatReplies?: unkno
   });
 
   const ofKind = (kind: Kind) => () => calls.filter((call) => call.kind === kind);
-  return { chatCalls: ofKind("chat"), searchCalls: ofKind("search"), titleCalls: ofKind("title"), compatCalls: ofKind("compat"), ddgCalls: () => ddgCalls };
+  return { chatCalls: ofKind("chat"), searchCalls: ofKind("search"), titleCalls: ofKind("title"), compatCalls: ofKind("compat"), ddgCalls: () => ddgCalls, bingCalls: () => bingCalls };
 }
 
 export const restoreGemini = () => {
