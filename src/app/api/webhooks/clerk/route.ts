@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/utils/prisma'
+import prisma from '@/lib/db/prisma'
 import { Webhook } from 'svix'
 
 export async function POST(req: NextRequest) {

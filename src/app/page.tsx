@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { Landing } from "./components/Landing";
+import { Landing } from "@/components/landing/Landing";
 
 export default function Home() {
   const [contentVisible, setContentVisible] = useState(false);

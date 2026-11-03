@@ -1,0 +1,342 @@
+import { test, mock, afterEach } from "node:test";
+import assert from "node:assert/strict";
+import { Readable } from "node:stream";
+import { generateGeminiResponse, withoutSources } from "@/lib/ai/reply";
+import type { StreamEvent } from "@/lib/http/ndjson";
+import { GEMINI_MODELS } from "@/lib/ai/gemini";
+import { failure, hang, outage, searchCall, sseEvent, stream, stubGemini } from "../../helpers/gemini";
+
+async function reply(prompt: string, context: string | null = null) {
+  const events: StreamEvent[] = [];
+  const text = await generateGeminiResponse(prompt, context, (event) => events.push(event));
+  return { text, events, deltas: events.flatMap((e) => (e.type === "delta" ? [e.text] : [])) };
+}
+
+afterEach(() => mock.restoreAll());
+
+test("search round trip echoes the model turn, answers the call and appends sources", async () => {
+  const api = stubGemini({
+    replies: [
+      stream([{ ...searchCall("gemini models"), thoughtSignature: "SIG" }]),
+      stream([{ text: "It's " }], [{ text: "3.8 Flash." }]),
+    ],
+  });
+
+  const { text, deltas } = await reply("tell me about gemini models");
+
+  assert.match(text, /^It's 3\.8 Flash\./);
+  assert.match(text, /\*\*Sources\*\*\n- \[a\.com\]\(https:\/\/a\.com\/x\)/);
+  assert.deepEqual(deltas.slice(0, 2), ["It's ", "3.8 Flash."]);
+  const followUp = api.chatCalls()[1].body.contents;
+  assert.equal(followUp[1].role, "model");
+  assert.equal(followUp[1].parts[0].thoughtSignature, "SIG");
+  assert.equal(followUp[2].parts[0].functionResponse.name, "web_search");
+});
+
+test("only the first two searches in a round run, all calls still get a response", async () => {
+  const api = stubGemini({
+    replies: [stream([searchCall("a"), searchCall("b"), searchCall("c")]), stream([{ text: "Done." }])],
+  });
+
+  await reply("compare things");
+
+  assert.equal(api.searchCalls().length, 2);
+  assert.equal(api.chatCalls()[1].body.contents[2].parts.length, 3);
+});
+
+test("malformed tool calls get an error response instead of a search", async () => {
+  const api = stubGemini({
+    replies: [stream([{ functionCall: { name: "web_search", args: {} } }]), stream([{ text: "Fine." }])],
+  });
+
+  await reply("anything");
+
+  assert.equal(api.searchCalls().length, 0);
+  assert.equal(api.chatCalls()[1].body.contents[2].parts[0].functionResponse.response.error, "Invalid tool call.");
+});
+
+test("empty model text after a search gives the fallback, not a bare source list", async () => {
+  stubGemini({ replies: [stream([searchCall("q")]), stream([{ text: "" }])] });
+
+  const { text } = await reply("anything");
+
+  assert.doesNotMatch(text, /Sources/);
+  assert.match(text, /technical problem/);
+});
+
+test("withoutSources strips the appended list", async () => {
+  stubGemini({ replies: [stream([searchCall("q")]), stream([{ text: "Answer." }])] });
+
+  const { text } = await reply("q");
+
+  assert.equal(withoutSources(text), "Answer.");
+  assert.equal(withoutSources("No sources here."), "No sources here.");
+});
+
+test("events split across network chunks are reassembled", async () => {
+  stubGemini({
+    replies: [
+      {
+        data: Readable.from([
+          'data: {"candidates":[{"content":{"parts":[{"te',
+          'xt":"Hel"}]}}]}\n\ndata: {"candidates":[{"content":{"parts":[{"text":"lo"}]}}]}\r\n',
+          "\r\n",
+        ]),
+      },
+    ],
+  });
+
+  const { text, deltas } = await reply("say hello");
+
+  assert.deepEqual(deltas, ["Hel", "lo"]);
+  assert.equal(text, "Hello");
+});
+
+test("thought parts are echoed to the model but never shown to the user", async () => {
+  stubGemini({ replies: [stream([{ text: "private reasoning", thought: true }, { text: "Visible." }])] });
+
+  const { text, deltas } = await reply("hi");
+
+  assert.equal(text, "Visible.");
+  assert.deepEqual(deltas, ["Visible."]);
+});
+
+test("an overloaded model fails over to the next one", async () => {
+  const api = stubGemini({ replies: [failure(503), stream([{ text: "Hi from the backup." }])] });
+
+  const { text } = await reply("hello");
+
+  assert.equal(text, "Hi from the backup.");
+  assert.deepEqual(api.chatCalls().map((c) => c.model), ["gemini-3.8-flash", "gemini-3.6-flash"]);
+});
+
+test("a rate-limited model also fails over", async () => {
+  const api = stubGemini({ replies: [failure(429), stream([{ text: "ok" }])] });
+
+  await reply("hello");
+
+  assert.equal(api.chatCalls().length, 2);
+});
+
+test("a client error does not fail over", async () => {
+  const api = stubGemini({ replies: [failure(403)] });
+
+  const { text } = await reply("hello");
+
+  assert.equal(api.chatCalls().length, 1);
+  assert.match(text, /technical problem/);
+});
+
+test("a bad request is retried once with a minimal request", async () => {
+  const api = stubGemini({ replies: [failure(400), stream([{ text: "Recovered." }])] });
+
+  const { text } = await reply("hello", "User: earlier\nAI: reply");
+
+  assert.equal(text, "Recovered.");
+  const retry = api.chatCalls()[1].body;
+  assert.equal(retry.contents[0].parts[0].text, "hello");
+  assert.equal(retry.tools, undefined);
+  assert.equal(retry.generationConfig, undefined);
+});
+
+test("a retired model (404) is skipped instead of ending the conversation", async () => {
+  const api = stubGemini({ replies: [failure(404), stream([{ text: "Still here." }])] });
+
+  const { text } = await reply("hello");
+
+  assert.equal(text, "Still here.");
+  assert.deepEqual(api.chatCalls().map((c) => c.model), GEMINI_MODELS.slice(0, 2));
+});
+
+test("every model overloaded gives the overloaded message", async () => {
+  stubGemini({ replies: outage(503) });
+
+  const { text } = await reply("hello");
+
+  assert.match(text, /overloaded/);
+});
+
+test("every model rate limited gives the rate limit message", async () => {
+  stubGemini({ replies: outage(429) });
+
+  const { text } = await reply("hello");
+
+  assert.match(text, /rate limit/);
+});
+
+test("the fallback message mentions the creator when the user asked about them", async () => {
+  stubGemini({ replies: outage(500) });
+
+  const { text } = await reply("who made you?");
+
+  assert.match(text, /Bishal Baira/);
+});
+
+test("time-sensitive prompts are searched first and the results go to the model", async () => {
+  const api = stubGemini({ replies: [stream([{ text: "It is sunny." }])] });
+
+  const { text, events } = await reply("what's the weather today in Delhi?");
+
+  assert.equal(api.searchCalls().length, 1);
+  assert.equal(api.chatCalls().length, 1);
+  const sent = api.chatCalls()[0].body;
+  assert.match(sent.contents[0].parts[0].text, /Live web search results[\s\S]*Fresh facts\./);
+  assert.ok(sent.tools, "the model can still search for more");
+  assert.deepEqual(events[0], { type: "status", text: "Searching the web…" });
+  assert.match(text, /\*\*Sources\*\*/);
+});
+
+test("prompts that do not need fresh data are not searched", async () => {
+  const api = stubGemini({ replies: [stream([{ text: "A closure is..." }])] });
+
+  const { text } = await reply("explain closures in JavaScript");
+
+  assert.equal(api.searchCalls().length, 0);
+  assert.doesNotMatch(text, /Sources/);
+});
+
+test("conversation history is sent with the new message", async () => {
+  const api = stubGemini({ replies: [stream([{ text: "Sure." }])] });
+
+  await reply("and what about Python?", "User: explain closures\nAI: A closure is...");
+
+  const sent = api.chatCalls()[0].body.contents[0].parts[0].text;
+  assert.match(sent, /Conversation so far:\nUser: explain closures/);
+  assert.match(sent, /New message from the user:\nand what about Python\?/);
+});
+
+test("a failure after a search answers from the gathered results on any model", async () => {
+  const api = stubGemini({ replies: [stream([searchCall("q")]), failure(503), stream([{ text: "From the notes." }])] });
+
+  const { text } = await reply("tell me something");
+
+  assert.match(text, /^From the notes\./);
+  const retry = api.chatCalls()[2].body;
+  assert.equal(retry.tools, undefined);
+  assert.match(retry.contents[0].parts[0].text, /Fresh facts\./);
+  assert.equal(retry.contents.length, 1);
+});
+
+test("a stream that breaks after text keeps the text instead of an error", async () => {
+  const broken = new Readable({ read() {} });
+  broken.push(sseEvent([{ text: "Part of an answer" }]));
+  setImmediate(() => broken.destroy(new Error("aborted")));
+  stubGemini({ replies: [{ data: broken }] });
+
+  const { text } = await reply("hello");
+
+  assert.match(text, /^Part of an answer\n\n_The response was interrupted/);
+});
+
+test("a model that stays silent is overtaken by the next one, which starts alongside it", async () => {
+  const api = stubGemini({ replies: [hang(), stream([{ text: "Quick answer." }])] });
+
+  const { text } = await reply("hello");
+
+  assert.equal(text, "Quick answer.");
+  const [slow, fast] = api.chatCalls();
+  assert.deepEqual([slow.model, fast.model], GEMINI_MODELS.slice(0, 2));
+  assert.equal(slow.signal?.aborted, true, "the silent request is cancelled once another model answers");
+});
+
+test("a model that answers in time is never hedged", async () => {
+  const api = stubGemini({ replies: [stream([{ text: "Fine." }])] });
+
+  await reply("hello");
+  await new Promise((resolve) => setTimeout(resolve, 120)); // longer than the hedge delay
+
+  assert.equal(api.chatCalls().length, 1);
+});
+
+test("only the model that answers first is heard", async () => {
+  stubGemini({
+    replies: [
+      (config: { signal?: AbortSignal }) =>
+        new Promise((resolve, reject) => {
+          config.signal?.addEventListener("abort", () => reject(Object.assign(new Error("canceled"), { code: "ERR_CANCELED" })));
+          setTimeout(() => resolve(stream([{ text: "slow model " }, { text: "words" }])), 300);
+        }),
+      stream([{ text: "Fast model." }]),
+    ],
+  });
+
+  const { text, deltas } = await reply("hello");
+
+  assert.equal(text, "Fast model.");
+  assert.deepEqual(deltas, ["Fast model."]);
+});
+
+test("a model that failed is skipped on the next reply instead of being waited on again", async () => {
+  const api = stubGemini({ replies: [failure(503), stream([{ text: "One." }]), stream([{ text: "Two." }])] });
+
+  await reply("first question");
+  await reply("second question");
+
+  assert.deepEqual(api.chatCalls().map((c) => c.model), [GEMINI_MODELS[0], GEMINI_MODELS[1], GEMINI_MODELS[1]]);
+});
+
+test("a model that was too slow is skipped on the next reply", async () => {
+  const api = stubGemini({ replies: [hang(), stream([{ text: "One." }]), stream([{ text: "Two." }])] });
+
+  await reply("first question");
+  await reply("second question");
+
+  assert.deepEqual(api.chatCalls().map((c) => c.model), [GEMINI_MODELS[0], GEMINI_MODELS[1], GEMINI_MODELS[1]]);
+});
+
+test("a retired model is remembered as gone and not retried", async () => {
+  const api = stubGemini({ replies: [failure(404), stream([{ text: "One." }]), stream([{ text: "Two." }])] });
+
+  await reply("first question");
+  await reply("second question");
+
+  assert.equal(api.chatCalls().filter((c) => c.model === GEMINI_MODELS[0]).length, 1);
+});
+
+test("when every model is cooling down they are all still tried", async () => {
+  stubGemini({ replies: outage(503) });
+  await reply("first question"); // marks the whole chain unhealthy
+
+  const api = stubGemini({ replies: [stream([{ text: "Back." }])] });
+  const { text } = await reply("second question");
+
+  assert.equal(text, "Back.");
+  assert.equal(api.chatCalls().length, 1);
+});
+
+test("an error after the winner started answering is final: no other model is tried", async () => {
+  const broken = new Readable({ read() {} });
+  broken.push(sseEvent([{ text: "Half" }]));
+  setImmediate(() => broken.destroy(new Error("aborted")));
+  const api = stubGemini({ replies: [{ data: broken }, stream([{ text: "Should never be used." }])] });
+
+  const { text } = await reply("hello");
+
+  assert.match(text, /^Half\n\n_The response was interrupted/);
+  assert.equal(api.chatCalls().length, 1);
+});
+
+test("a model that wins but answered slowly is demoted behind faster ones for the next reply", async () => {
+  const slowButFine = () =>
+    new Promise((resolve) => setTimeout(() => resolve(stream([{ text: "Eventually." }])), 120)); // slower than the hedge delay
+  const api = stubGemini({ replies: [slowButFine, stream([{ text: "Fast." }])] });
+
+  await reply("first question");
+  await reply("second question");
+
+  const models = api.chatCalls().map((c) => c.model);
+  assert.equal(models[0], GEMINI_MODELS[0]);
+  assert.notEqual(models.at(-1), GEMINI_MODELS[0], "the slow model is no longer first in line");
+});
+
+test("a model that breaks while answering is not used first on the next reply", async () => {
+  const broken = new Readable({ read() {} });
+  broken.push(sseEvent([{ text: "Half" }]));
+  setImmediate(() => broken.destroy(new Error("aborted")));
+  const api = stubGemini({ replies: [{ data: broken }, stream([{ text: "Whole answer." }])] });
+
+  await reply("first question");
+  await reply("second question");
+
+  assert.equal(api.chatCalls().at(-1)?.model, GEMINI_MODELS[1]);
+});
