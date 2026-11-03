@@ -1,7 +1,11 @@
 import { getAuth } from '@clerk/nextjs/server';
-import prisma from '@/utils/prisma';
+import prisma from '@/lib/db/prisma';
 import { NextResponse, NextRequest } from 'next/server';
-import { generateGeminiResponse } from '@/utils/modelSelector';
+import { generateGeminiResponse, withoutSources } from '@/lib/ai/reply';
+import { ndjsonResponse } from '@/lib/http/ndjson';
+
+// Replies that run a web search take several sequential model calls.
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -29,28 +33,30 @@ export async function POST(req: NextRequest) {
   });
   await prisma.chat.update({ where: { id: Number(chatId) }, data: { updatedAt: new Date() } });
 
-  const aiContent = await generateGeminiResponse(content, chat.context);
-  let aiMessage = null;
-  if (aiContent) {
-    await prisma.user.upsert({
-      where: { id: 'luno-ai' },
-      update: {},
-      create: {
-        id: 'luno-ai',
-        email: 'luno-ai@local',
-        username: 'Luno',
-      },
-    });
-    aiMessage = await prisma.message.create({
-      data: { chatId: Number(chatId), userId: 'luno-ai', content: aiContent, role: 'assistant' }
-    });
+  return ndjsonResponse(async (send) => {
+    const aiContent = await generateGeminiResponse(content, chat.context, send);
+    let aiMessage = null;
+    if (aiContent) {
+      await prisma.user.upsert({
+        where: { id: 'luno-ai' },
+        update: {},
+        create: {
+          id: 'luno-ai',
+          email: 'luno-ai@local',
+          username: 'Luno',
+        },
+      });
+      aiMessage = await prisma.message.create({
+        data: { chatId: Number(chatId), userId: 'luno-ai', content: aiContent, role: 'assistant' }
+      });
 
-    const newContext = `${chat.context || ''}\nUser: ${content}\nAI: ${aiContent}`;
-    await prisma.chat.update({
-      where: { id: Number(chatId) },
-      data: { context: newContext }
-    });
-  }
+      const newContext = `${chat.context || ''}\nUser: ${content}\nAI: ${withoutSources(aiContent)}`;
+      await prisma.chat.update({
+        where: { id: Number(chatId) },
+        data: { context: newContext }
+      });
+    }
 
-  return NextResponse.json({ user: message, assistant: aiMessage });
+    send({ type: 'done', data: { user: message, assistant: aiMessage } });
+  });
 }

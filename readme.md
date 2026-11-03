@@ -5,7 +5,8 @@ It provides:
 
 - User authentication (sign in / sign up)
 - Persistent chat history per user
-- AI responses via Gemini
+- Streaming AI responses via Gemini, with automatic live web search for questions about today's or recent facts
+- Automatic failover to other free Gemini models when the main one is overloaded
 - A premium dark chat dashboard UI
 - Clerk webhook sync to keep user records in your database
 
@@ -19,16 +20,20 @@ It provides:
 
 ## Project Structure
 
-- src/app: App Router pages and API routes
-- src/app/components: Chat UI components
-- src/utils: Runtime helpers (Prisma client, model selector, etc.)
+- src/app: routes only (App Router pages and API routes)
+- src/components: chat/ (dashboard UI), landing/ (home page), ui/ (reusable pieces)
+- src/lib: ai/ (Gemini transport, prompt, reply loop, titles, web search), db/ (Prisma client), http/ (streaming format)
+- tests: unit/, api/, integration/ and live/ tests, plus shared helpers
 - prisma: Prisma schema and migrations
+- okf: knowledge bundle (see below)
+
+See okf/operations/repository-structure.md for the rules on where new files go.
 
 ## Prerequisites
 
 Install these before local setup:
 
-- Node.js 20+
+- Node.js 26 (see .nvmrc; run `nvm use`)
 - npm (or bun)
 - PostgreSQL database (local or hosted)
 - Clerk account and app
@@ -91,7 +96,11 @@ DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?schema=public"
 
 # Gemini
 BOT_API="YOUR_GEMINI_API_KEY"
-GEMINI_MODEL="gemini-2.5-flash-lite"
+GEMINI_MODEL="gemini-3.8-flash"
+GEMINI_FALLBACK_MODELS="gemini-3.6-flash,gemini-3.5-flash-lite"
+GEMINI_THINKING_LEVEL="low"
+GEMINI_TITLE_MODEL="gemini-3.1-flash-lite"
+GEMINI_SEARCH_MODEL="gemini-2.5-flash-lite"
 
 # Clerk (Frontend + Backend)
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_xxxxxxxxx"
@@ -126,7 +135,13 @@ Then copy the webhook signing secret to CLERK_WEBHOOK_SECRET.
 ### Gemini API Key
 
 Create API key from Google AI Studio and place it in BOT_API.
-Model defaults to gemini-2.5-flash-lite (fast/free profile) and can be changed via GEMINI_MODEL.
+Chat model defaults to gemini-3.8-flash (free tier) and can be changed via GEMINI_MODEL.
+
+If the chat model is overloaded (503), out of quota (429), retired (404) or just slow, Luno tries the models in GEMINI_FALLBACK_MODELS: a model that stays silent for GEMINI_HEDGE_MS (4 s) gets company from the next one, the first to answer wins, and models that failed or were slow are tried last for a few minutes.
+
+Free-tier note: Google's free tier allows only about 20 requests per day per model. Each reply uses at least one request, plus one per web search, one per new chat title, and one per hedge. Enable billing on your Google AI project to remove the limit.
+
+Web search: questions that are clearly about today's or recent facts (today, latest, weather, news, prices, scores, recent years) are searched automatically before the model answers, and the model can also call a `web_search` tool itself. Searches run through Google Search grounding on GEMINI_SEARCH_MODEL (gemini-2.5-flash-lite, free up to 500 requests/day; gemini-2.5-flash is no longer served to new API keys and newer models need a paid plan for grounding).
 
 ## Running The Project
 
@@ -153,12 +168,12 @@ npm run lint
 
 - /api/chat
 	- GET: list chats for authenticated user
-	- POST: create chat (optionally with first message)
+	- POST: create chat; with a first message the reply is streamed as newline-delimited JSON events (status, delta, done, error)
 	- DELETE: delete chat by chatId
 
 - /api/message
 	- GET: list messages for a chat
-	- POST: add message and get AI response
+	- POST: add message; the AI response is streamed as newline-delimited JSON events (status, delta, done, error)
 
 - /api/webhooks/clerk
 	- POST: verifies Clerk webhook and inserts user in DB
@@ -186,9 +201,38 @@ npm run lint
 ## Scripts
 
 - npm run dev: start Next.js in development
-- npm run build: generate Prisma client and build app
+- npm run build: generate Prisma client and build app (do not run while `npm run dev` is running; it overwrites the dev server's files)
+- npm run build:check: the same build into .next-check, safe while the dev server runs
 - npm run start: start production server
-- npm run lint: run ESLint
+- npm run lint: run ESLint over src and tests
+- npm run typecheck: run the TypeScript compiler without emitting
+- npm test: unit, api and integration tests (offline, no API key needed)
+- npm run test:live: opt-in tests against the real Gemini API (uses a little free-tier quota)
+- npm run okf:check: validate the okf/ knowledge bundle
+- npm run check: lint, typecheck, tests and okf check in one go
+
+## Git Hooks
+
+Husky installs git hooks on npm install:
+
+- pre-commit runs `npm run check` (lint, typecheck, tests, okf check)
+- pre-push runs `npm run build:check`
+
+A failing check stops the commit or push. Set HUSKY=0 to bypass them in an emergency.
+
+## Chat Titles
+
+A new chat is named automatically, like ChatGPT: a small free model (GEMINI_TITLE_MODEL) writes a short title from the first message while the reply streams. If that fails, the start of the message is used.
+
+## Knowledge Bundle (OKF)
+
+The `okf/` folder describes this repository in the [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) (v0.2): markdown files with YAML frontmatter covering the architecture, API, data model, AI flow, UI and operations. Humans and AI agents can start at `okf/index.md`.
+
+After changing behavior, update the matching file and `okf/log.md`, then run:
+
+```bash
+npm run okf:check
+```
 
 ## License
 

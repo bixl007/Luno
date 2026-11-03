@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import ChatMessage from "./ChatMessage";
 import toast, { Toaster } from "react-hot-toast";
 import jsPDF from 'jspdf';
+import { readNdjson } from "@/lib/http/ndjson";
 
 type Chat = { id: number; title: string; messages?: Message[] };
-type Message = { id?: number; content?: string; text?: string; role: string };
+type Message = { id?: number; content?: string; text?: string; role: string; status?: string };
 
 const PRETRAINED_PROMPTS = [
   "Get fresh perspective on tricky problems",
@@ -366,6 +367,38 @@ export default function Chat() {
     if (res.ok) setMessages(await res.json());
   }
 
+  // Reads a streamed reply, showing the text in the last (assistant) message as it arrives. Returns the final payload.
+  async function readReply(res: Response) {
+    let text = "";
+    let data: any = null;
+    await readNdjson(res, (event) => {
+      if (event.type === "status") {
+        setMessages((prev) => [...prev.slice(0, -1), { ...prev[prev.length - 1], status: event.text }]);
+      } else if (event.type === "delta") {
+        text += event.text;
+        // Dropping the placeholder id switches the message from the loading dots to the streamed text.
+        setMessages((prev) => [...prev.slice(0, -1), { role: "assistant", content: text }]);
+      } else if (event.type === "error") {
+        throw new Error(event.message);
+      } else {
+        data = event.data;
+      }
+    });
+    if (!data) throw new Error("The reply ended early");
+    return data;
+  }
+
+  function showSendError() {
+    toast.error('Failed to send message. Please try again.', {
+      duration: 3000,
+      style: {
+        background: '#1e293b',
+        color: '#f1f5f9',
+        border: '1px solid #334155'
+      }
+    });
+  }
+
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim()) return;
@@ -383,24 +416,18 @@ export default function Chat() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: input.slice(0, 30), firstMessage: input }),
+        body: JSON.stringify({ firstMessage: input }),
       });
-      if (res.ok) {
-        const chat = await res.json();
+      try {
+        if (!res.ok) throw new Error("Request failed");
+        const chat = await readReply(res);
         setChats([chat, ...chats]);
         setSelectedChat(chat);
         // Only set the messages returned from the backend (do not add the user message again)
         setMessages(chat.messages || []);
-      } else {
+      } catch {
         setMessages([]);
-        toast.error('Failed to send message. Please try again.', {
-          duration: 3000,
-          style: {
-            background: '#1e293b',
-            color: '#f1f5f9',
-            border: '1px solid #334155'
-          }
-        });
+        showSendError();
       }
       setIsThinking(false);
       return;
@@ -414,25 +441,19 @@ export default function Chat() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chatId: selectedChat.id, content: input }),
     });
-    if (res.ok) {
-      const { user, assistant } = await res.json(); // 'user' is the user message from backend
+    try {
+      if (!res.ok) throw new Error("Request failed");
+      const { assistant } = await readReply(res);
       setMessages((prev) => [
-        ...prev.slice(0, -1), // Removes the "thinking" message, leaves the optimistic user message
-        // The 'user' message from the backend is no longer added here to prevent duplication
-        ...(assistant ? [assistant] : []) // Only add the assistant's message
+        ...prev.slice(0, -1), // Removes the streamed/"thinking" message, leaves the optimistic user message
+        // The 'user' message from the backend is not added here to prevent duplication
+        ...(assistant ? [assistant] : []) // Swap in the saved assistant message
       ]);
       fetchChats();
-    } else {
-      // Remove the temp "thinking" message on error
+    } catch {
+      // Remove the temp assistant message on error
       setMessages((prev) => prev.slice(0, -1));
-      toast.error('Failed to send message. Please try again.', {
-        duration: 3000,
-        style: {
-          background: '#1e293b',
-          color: '#f1f5f9',
-          border: '1px solid #334155'
-        }
-      });
+      showSendError();
     }
     setIsThinking(false);
   }
@@ -656,7 +677,7 @@ export default function Chat() {
                             <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
                             <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
                             <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                            <span className="ml-2 text-slate-300">Luno is thinking...</span>
+                            <span className="ml-2 text-slate-300">{msg.status || "Luno is thinking..."}</span>
                           </div>
                         ) : (
                           <>
